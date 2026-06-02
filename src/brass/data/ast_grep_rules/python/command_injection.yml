@@ -1,0 +1,25 @@
+id: brass.python.command-injection-shell-true-fstring
+language: python
+rule:
+  any:
+    # Each variant has both a "shell=True is last kwarg" form and a "trailing
+    # args after shell=True" form, because $$$ requires at least one trailing
+    # token in ast-grep. Without the no-trailing variant, simple cases like
+    # `subprocess.run(f"...", shell=True)` silently fail to match.
+    - pattern: subprocess.run(f"$$$", shell=True)
+    - pattern: subprocess.run(f"$$$", shell=True, $$$)
+    - pattern: subprocess.call(f"$$$", shell=True)
+    - pattern: subprocess.call(f"$$$", shell=True, $$$)
+    - pattern: subprocess.Popen(f"$$$", shell=True)
+    - pattern: subprocess.Popen(f"$$$", shell=True, $$$)
+    - pattern: subprocess.check_output(f"$$$", shell=True)
+    - pattern: subprocess.check_output(f"$$$", shell=True, $$$)
+    - pattern: os.system(f"$$$")
+    - pattern: os.popen(f"$$$")
+severity: error
+message: >-
+  Shell execution with an f-string command line. Pass an argument list
+  with shell=False, or whitelist the binary and validate its arguments.
+metadata:
+  brass_kind: command_injection
+  cwe: CWE-78

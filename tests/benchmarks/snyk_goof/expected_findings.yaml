@@ -1,0 +1,97 @@
+# Expected findings for Snyk Goof at commit
+# add14ba59e98240d9e00a235dd7d42cd61ae9912 (master HEAD 2026-05-17).
+#
+# Snyk Goof is Snyk's canonical intentionally-vulnerable Node.js demo.
+# It contains documented vulnerable npm dependencies AND source-code
+# anti-patterns. BrassCoders's static analysis surface covers the source-code
+# patterns; the vulnerable-dependency surface (lodash prototype
+# pollution CVE-2019-10744, etc.) is out of brass's scope (npm audit
+# territory, not static code analysis).
+#
+# Source: brass scan output 2026-05-17 under the test harness.
+
+project: snyk_goof
+upstream: https://github.com/snyk/goof
+pinned_sha: add14ba59e98240d9e00a235dd7d42cd61ae9912
+upstream_reference: master HEAD 2026-05-17
+baseline_scan_date: '2026-05-17'
+
+# Findings the e2e test REQUIRES brass to produce on this commit.
+required_findings:
+  - file: app.js
+    line: 43
+    category: hardcoded_credential
+    expected_scanner: SecretsScanner
+    vulnerability_class: 'Weak express-session secret (CWE-798)'
+    notes: |
+      express-session configured with secret: 'keyboard cat' — the
+      well-known default. detect-secrets via SecretsScanner catches
+      this as a high-severity Possible Secret Keyword finding.
+
+  - file: mongoose-db.js
+    line: 52
+    category: hardcoded_credential
+    expected_scanner: SecretsScanner
+    vulnerability_class: 'Hardcoded admin password (CWE-798)'
+    notes: |
+      Mongoose seed code creates an admin user with hardcoded
+      password 'SuperSecretPassword'. Documented Snyk Goof
+      vulnerability. SecretsScanner catches reliably.
+
+  - file: typeorm-db.js
+    line: 12
+    category: hardcoded_credential
+    expected_scanner: SecretsScanner
+    vulnerability_class: 'Hardcoded database password (CWE-798)'
+    notes: |
+      TypeORM connection config with hardcoded password "root".
+      SecretsScanner catches as medium-severity.
+
+  - file: routes/index.js
+    line: 328
+    category: hardcoded_credential
+    expected_scanner: SecretsScanner
+    vulnerability_class: 'Hardcoded password in mock user list (CWE-798)'
+    notes: |
+      Mock user list with `password: 'pwd'`. SecretsScanner catches
+      via Possible Secret Keyword detector.
+
+# Documented Snyk Goof vulnerabilities that brass does NOT detect.
+# These represent real coverage gaps: command injection and NoSQL
+# injection patterns Snyk Goof explicitly demonstrates, but brass's
+# JavaScript scanners don't catch.
+aspirational_findings:
+  - file: routes/index.js
+    line: 174
+    category: command_injection
+    upstream_documents_as: 'Command Injection via exec(identify + url) (CWE-78)'
+    why_not_detected: |
+      User-controlled `url` flows into child_process.exec via
+      string concat ("identify " + url). Snyk Goof's
+      exploits/command-injection.sh demonstrates the attack.
+      BrassCoders's JS/TS scanner doesn't model child_process.exec as
+      a sink; would need a Semgrep JS taint rule or a
+      JavaScriptTypeScriptScanner pattern addition.
+
+  - file: routes/index.js
+    line: 52
+    category: nosql_injection
+    upstream_documents_as: 'NoSQL Injection via Mongoose find with raw req.body (CWE-943)'
+    why_not_detected: |
+      User-controlled req.body.username + req.body.password flow
+      directly into User.find() — classic NoSQL injection via
+      operator injection ({"$gt": ""}). Snyk Goof's
+      exploits/nosql-exploits.sh demonstrates the attack. Same
+      detection gap as the NodeGoat allocations-dao.js $where
+      pattern.
+
+  - file: package.json
+    line: 1
+    category: vulnerable_dependency
+    upstream_documents_as: 'Vulnerable npm dependencies (multiple CVEs incl. lodash CVE-2019-10744)'
+    why_not_detected: |
+      Snyk Goof's headline value-add is its vulnerable-npm-deps
+      list (lodash prototype pollution, st path traversal, etc.).
+      BrassCoders intentionally doesn't scan package.json / npm audit
+      territory — that's a separate product surface. Listed here
+      so future maintainers don't expect brass to catch it.

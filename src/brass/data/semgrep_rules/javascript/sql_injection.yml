@@ -1,0 +1,61 @@
+rules:
+  - id: brass.javascript.taint.sql-injection
+    mode: taint
+    severity: ERROR
+    languages: [javascript, typescript]
+    message: >-
+      Tainted HTTP request data reaches a SQL execution sink without
+      parameterization. Use parameterized queries (prepared statements or
+      query-builder methods) instead of template-string SQL.
+    metadata:
+      category: security
+      cwe: "CWE-89"
+      brass_kind: sql_injection
+    pattern-sources:
+      # Express / Hono / generic Node HTTP
+      - pattern: req.query
+      - pattern: req.query.$X
+      - pattern: req.body
+      - pattern: req.body.$X
+      - pattern: req.params
+      - pattern: req.params.$X
+      - pattern: req.cookies
+      - pattern: req.cookies.$X
+      - pattern: req.headers
+      - pattern: req.headers.$X
+      # Next.js App Router (route.ts): the function parameter named
+      # `request` or `req` is the source. Pages Router uses `req.query`
+      # which the patterns above already cover.
+      - patterns:
+          - pattern-inside: |
+              export async function $METHOD($REQ: $$$) {
+                ...
+              }
+          - focus-metavariable: $REQ
+      - patterns:
+          - pattern-inside: |
+              export async function $METHOD($REQ) {
+                ...
+              }
+          - focus-metavariable: $REQ
+    pattern-sinks:
+      # pg / node-postgres
+      - pattern: $CLIENT.query(`...`, ...)
+      - pattern: $CLIENT.query(`...`)
+      # mysql / mysql2
+      - pattern: $CONN.query(`...`, ...)
+      - pattern: $CONN.execute(`...`, ...)
+      # sqlite3
+      - pattern: $DB.exec(`...`)
+      - pattern: $DB.run(`...`, ...)
+      # knex
+      - pattern: $K.raw(`...`, ...)
+      - pattern: $K.raw(`...`)
+      # Prisma raw queries — ONLY the Unsafe variants. The non-Unsafe
+      # template-tag forms ($queryRaw`...` and $executeRaw`...`) are
+      # parameterized by Prisma's runtime; flagging them produces FPs.
+      - pattern: $PRISMA.$queryRawUnsafe(`...`)
+      - pattern: $PRISMA.$executeRawUnsafe(`...`)
+      # Drizzle
+      - pattern: $DB.execute(sql`...`)
+      - pattern: $DB.execute($SQL)

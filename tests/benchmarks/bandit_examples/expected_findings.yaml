@@ -1,0 +1,281 @@
+# Expected findings for PyCQA Bandit examples/ at commit
+# 92ae8b82fb422a639f0ed8d99e96cea769594e08 (Bandit 1.9.4 release).
+#
+# Bandit's examples/ directory has one file per B-code rule — it's
+# Bandit's own regression test corpus. Since brass uses Bandit
+# internally via ProfessionalCodeScanner, these examples are the
+# canonical "did brass keep up with bandit's detection surface?"
+# regression suite.
+#
+# IMPORTANT FINDING SURFACED BY THIS BENCHMARK: brass currently
+# MISSES most of Bandit's documented B-codes under the test harness.
+# Direct `bandit examples/<file>.py` invocations report findings
+# that brass's ProfessionalCodeScanner does NOT surface (B102 exec,
+# B201 flask_debug, B301 pickle/dill, B307 eval, B602 shell injection,
+# B701 jinja2_autoescape, B101 assert, B104 binding, B108 hardcoded_tmp,
+# etc.). These are listed as aspirational below — a future brass
+# improvement that fixes the bandit-result-attribution pipeline would
+# promote dozens of these to required_findings simultaneously.
+#
+# What brass DOES currently catch on this corpus:
+#  - hardcoded passwords (auth_pattern_analyzer + SecretsScanner)
+#  - SQL string-concat patterns (input_validation_analyzer)
+#  - MD5 / weak hash references (AstGrepScanner)
+
+project: bandit_examples
+upstream: https://github.com/PyCQA/bandit
+pinned_sha: 92ae8b82fb422a639f0ed8d99e96cea769594e08
+upstream_reference: 1.9.4 release tag
+baseline_scan_date: '2026-05-17'
+
+# Scan only the curated examples/ directory rather than the full
+# bandit repo. Bandit's own source contains thousands of files
+# (its rule implementations, test fixtures, scripts) that would
+# dominate the scan output and obscure the benchmark signal.
+scan_subpath: examples
+
+# Findings the e2e test REQUIRES brass to produce on this commit.
+required_findings:
+  - file: hardcoded-passwords.py
+    line: 4
+    category: hardcoded_credential
+    expected_scanner: auth_pattern_analyzer
+    vulnerability_class: 'Hardcoded Credentials (CWE-798, Bandit B105)'
+    notes: |
+      Bandit B105 hardcoded_password_string. brass catches via
+      auth_pattern_analyzer (its AI-auth heuristic) rather than
+      surfacing the bandit attribution directly — same coverage,
+      different scanner attribution.
+
+  - file: hardcoded-passwords.py
+    line: 8
+    category: hardcoded_credential
+    expected_scanner: auth_pattern_analyzer
+    vulnerability_class: 'Hardcoded Credentials (CWE-798, Bandit B107)'
+    notes: B107 hardcoded_password_default — function-argument default.
+
+  - file: hardcoded-passwords.py
+    line: 38
+    category: hardcoded_credential
+    expected_scanner: auth_pattern_analyzer
+    vulnerability_class: 'Hardcoded Credentials (CWE-798, Bandit B105)'
+    notes: Third sample of the hardcoded-password family.
+
+  - file: sql_statements.py
+    line: 17
+    category: sql_injection
+    expected_scanner: input_validation_analyzer
+    vulnerability_class: 'SQL Injection via string formatting (CWE-89, Bandit B608)'
+    notes: |
+      Bandit B608 hardcoded_sql_expressions. brass catches via
+      input_validation_analyzer's sql_injection_risk heuristic.
+
+  - file: sql_statements.py
+    line: 18
+    category: sql_injection
+    expected_scanner: input_validation_analyzer
+    vulnerability_class: 'SQL Injection via string formatting (CWE-89, Bandit B608)'
+    notes: Second sample of the same family.
+
+  - file: sql_statements.py
+    line: 19
+    category: sql_injection
+    expected_scanner: input_validation_analyzer
+    vulnerability_class: 'SQL Injection via string formatting (CWE-89, Bandit B608)'
+    notes: Third sample of the same family.
+
+  - file: crypto-md5.py
+    line: 13
+    category: weak_crypto
+    expected_scanner:
+      - AstGrepScanner
+      - bandit
+    vulnerability_class: 'Weak Hash: MD5 (CWE-327, Bandit B324)'
+    notes: |
+      Bandit B324 hashlib_insecure_functions. macOS local env catches
+      via AstGrepScanner; Ubuntu CI catches via bandit attribution
+      directly. Both are legitimate detections of the same vuln —
+      manifest accepts either. Schema supports `expected_scanner` as
+      a list precisely to absorb this kind of cross-env attribution
+      drift without losing the regression-detection signal.
+
+  - file: flask_debug.py
+    line: 10
+    category: security_misconfiguration
+    expected_scanner: bandit
+    vulnerability_class: 'Flask debug mode enabled (CWE-489, Bandit B201)'
+    notes: |
+      Promoted from aspirational 2026-05-18 after fixing task #64
+      (PYTHONUSERBASE env preservation). Flask app.run(debug=True)
+      enables the Werkzeug debugger which allows remote code
+      execution if exposed publicly. Adds security_misconfiguration
+      as a NEW vulnerability category to Track A's demonstrated
+      coverage.
+
+  - file: jinja2_templating.py
+    line: 9
+    category: xss
+    expected_scanner: bandit
+    vulnerability_class: 'Jinja2 autoescape disabled (CWE-79, Bandit B701)'
+    notes: |
+      Promoted from aspirational 2026-05-18 alongside flask_debug
+      (same task #64 fix). Jinja2 Environment with autoescape=False
+      enables XSS via unsanitized template output. Adds xss as a
+      NEW vulnerability category to Track A's demonstrated coverage.
+
+  - file: requests-ssl-verify-disabled.py
+    line: 6
+    category: insecure_transport
+    expected_scanner: bandit
+    vulnerability_class: 'SSL cert verification disabled (CWE-295, Bandit B501)'
+    notes: |
+      Added 2026-05-18 to broaden Track A category coverage.
+      requests.get(url, verify=False) disables certificate validation,
+      enabling MITM attacks. brass catches via bandit attribution
+      (15 instances on this file total). Adds insecure_transport
+      as a NEW vulnerability category.
+
+  - file: ssl-insecure-version.py
+    line: 6
+    category: insecure_transport
+    expected_scanner: bandit
+    vulnerability_class: 'Insecure TLS protocol (CWE-327, Bandit B502)'
+    notes: |
+      ssl.wrap_socket / SSL.Context using deprecated TLS versions
+      (SSLv2/v3/TLSv1). Adds 2nd instance + 2nd file to
+      insecure_transport category.
+
+  - file: no_host_key_verification.py
+    line: 8
+    category: insecure_authentication
+    expected_scanner: bandit
+    vulnerability_class: 'Paramiko AutoAddPolicy (CWE-295, Bandit B507)'
+    notes: |
+      Paramiko set_missing_host_key_policy(AutoAddPolicy()) auto-
+      trusts any SSH host, enabling MITM. Adds insecure_authentication
+      as a NEW vulnerability category.
+
+  - file: os-chmod.py
+    line: 6
+    category: insecure_permissions
+    expected_scanner: bandit
+    vulnerability_class: 'World-writable chmod (CWE-732, Bandit B103)'
+    notes: |
+      chmod with permissive mask (0o777) on a file. brass via
+      bandit catches 8 instances on this file. Adds
+      insecure_permissions as a NEW vulnerability category.
+
+  - file: tarfile_extractall.py
+    line: 8
+    category: path_traversal
+    expected_scanner: bandit
+    vulnerability_class: 'tarfile.extractall without filter (CWE-22, Bandit B202)'
+    notes: |
+      tarfile.extractall without member-filtering enables zip-slip /
+      path-traversal extraction outside the target directory.
+      Adds path_traversal as a NEW vulnerability category.
+
+  - file: weak_cryptographic_key_sizes.py
+    line: 5
+    category: weak_crypto
+    expected_scanner: bandit
+    vulnerability_class: 'Weak RSA/DSA key size (CWE-326, Bandit B505)'
+    notes: |
+      DSA/RSA key generation with insufficient bit-length. Adds 3rd
+      instance to weak_crypto category from a 3rd project file
+      (existing coverage was crypto-md5.py + pygoat L1017).
+
+  - file: dill.py
+    line: 6
+    category: deserialization
+    expected_scanner: bandit
+    vulnerability_class: 'Unsafe pickle/dill deserialization (CWE-502, Bandit B301)'
+    notes: |
+      Promoted from aspirational 2026-05-18 after fixing task #78
+      (NoiseReductionScanner was dropping bandit findings whose
+      confidence wasn't HIGH because confidence field stayed at
+      default 0.0). Adds deserialization as a NEW vulnerability
+      category to Track A's demonstrated coverage.
+
+  - file: jsonpickle.py
+    line: 6
+    category: deserialization
+    expected_scanner: bandit
+    vulnerability_class: 'Unsafe jsonpickle deserialization (CWE-502, Bandit B301)'
+    notes: |
+      Same root-cause family as dill.py — jsonpickle.decode is a
+      pickle-equivalent deserialization sink. Adds 2nd instance to
+      the new deserialization category.
+
+  - file: eval.py
+    line: 3
+    category: code_injection
+    expected_scanner: bandit
+    vulnerability_class: 'Use of eval (CWE-95, Bandit B307)'
+    notes: |
+      Promoted alongside the task #78 fix. Adds bandit_examples as
+      a 2nd project covering code_injection (existing coverage was
+      nodegoat's 3 contributions.js eval() calls).
+
+  - file: exec.py
+    line: 1
+    category: code_injection
+    expected_scanner: bandit
+    vulnerability_class: 'Use of exec (CWE-95, Bandit B102)'
+    notes: |
+      exec() is the Python-built-in code-injection sink that pairs
+      with eval(). Adds 2nd instance + 2nd file to code_injection
+      coverage in bandit_examples.
+
+  - file: binding.py
+    line: 4
+    category: insecure_binding
+    expected_scanner: bandit
+    vulnerability_class: 'Bind to 0.0.0.0 / all interfaces (CWE-200, Bandit B104)'
+    notes: |
+      Binding a service to 0.0.0.0 exposes it on all network
+      interfaces — often unintentional in production. Adds
+      insecure_binding as a NEW vulnerability category.
+
+  - file: hardcoded-tmp.py
+    line: 1
+    category: insecure_tempfile
+    expected_scanner: bandit
+    vulnerability_class: 'Hardcoded /tmp path (CWE-377, Bandit B108)'
+    notes: |
+      Using a hardcoded /tmp path (predictable filename) instead of
+      tempfile.mkstemp enables race conditions and symlink attacks.
+      Adds insecure_tempfile as a NEW vulnerability category.
+
+  - file: subprocess_shell.py
+    line: 11
+    category: command_injection
+    expected_scanner: bandit
+    vulnerability_class: 'subprocess Popen with shell=True (CWE-78, Bandit B602)'
+    notes: |
+      Adds 2nd instance + 2nd project to command_injection coverage
+      (existing was pygoat L423). subprocess.Popen with shell=True
+      is the classic Python command-injection sink.
+
+  - file: assert.py
+    line: 1
+    category: assert_in_production
+    expected_scanner: bandit
+    vulnerability_class: 'assert in non-test code (CWE-617, Bandit B101)'
+    notes: |
+      Promoted from aspirational 2026-05-18 after task #79 tightened
+      the _should_filter_finding test-file check from broad 'test' in
+      path to actual pytest conventions (filename test_*/_test.py,
+      conftest.py, /fixtures/ ancestor). The benchmark corpus path
+      `tests/benchmarks/_clones/bandit_examples/examples/assert.py`
+      now correctly classifies as non-test. Adds assert_in_production
+      as a NEW vulnerability category.
+
+# Bandit B-codes that brass's ProfessionalCodeScanner / bandit
+# integration does NOT surface under harness conditions, but that
+# direct `bandit examples/<file>.py` invocations DO report. This
+# manifest exposes a real coverage gap in brass's bandit-result
+# attribution pipeline; promoting any of these to required_findings
+# requires fixing the underlying integration, not just the manifest.
+aspirational_findings: []
+

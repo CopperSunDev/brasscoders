@@ -1,0 +1,106 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "brasscoders"
+version = "2.0.7"
+description = "BrassCoders — catches the bugs your AI coding assistant misses"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Copper Sun Brass Team", email = "info@coppersun.dev" },
+]
+keywords = ["claude-code", "ai-coding", "code-review", "noise-filter", "static-analysis"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Code Generators",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+# Runtime deps the scanners need at import-or-startup time. Pinned with conservative
+# floors plus an upper bound to avoid silent breakage from a SemVer-major release of
+# any of them. Bump these intentionally with a release.
+dependencies = [
+    "PyYAML>=6.0,<7",
+    "requests>=2.32,<3",
+    "bandit>=1.8,<2",
+    "pylint>=3.3,<4",
+    "radon>=6.0,<7",
+    "vulture>=2.0,<3",
+    "detect-secrets>=1.5,<2",
+    # Pyre/Pysa is the headline taint scanner. Pin tight: the .pysa
+    # model file format has been unstable across minor releases (Pyre
+    # 0.9.25 rejects 8 model lines that earlier versions accepted), so
+    # we pin a narrow version window that matches the bundled models'
+    # syntax. Bump intentionally alongside model-syntax review.
+    "pyre-check>=0.9.25,<0.10",
+    # BrassPerformanceScanner uses py-spy for sampling-profiler hot-path
+    # detection. Optional at runtime (scanner falls back to radon-only
+    # static complexity), but the runtime overlay is part of the
+    # advertised feature set and we ship as one product (no tiers), so
+    # py-spy is a base dependency rather than an opt-in extra.
+    "py-spy>=0.3,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0,<9",
+    "pytest-cov>=4.0,<7",
+    "pytest-timeout>=2.0,<3",
+    "pytest-xdist>=3.0,<4",
+]
+performance = [
+    # pyperf stays opt-in: only the benchmarking workflow uses it.
+    "pyperf>=2.0,<3",
+]
+
+[project.scripts]
+brasscoders = "brass.cli.brass_cli:main"
+
+[project.urls]
+# Public OSS mirror of cli/ lives at github.com/CopperSunDev/brasscoders.
+# That repo is a subtree push from this monorepo's cli/ directory; the
+# monorepo itself stays private because it also contains the closed-source
+# gateway. See scripts/sync-oss-mirror.sh for the sync mechanism.
+Homepage = "https://coppersun.dev/"
+Repository = "https://github.com/CopperSunDev/brasscoders"
+Issues = "https://github.com/CopperSunDev/brasscoders/issues"
+Documentation = "https://coppersun.dev/install/"
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# Explicit ship-list for non-Python files. include-package-data=true relies on
+# MANIFEST.in or sdist behavior; this block makes the data files load reliably
+# under both wheel and sdist installs (including pip install -e .). Adds the
+# framework registry, ast-grep rule packs, Joern queries, the Babel parser
+# bootstrap, and the existing content-moderation patterns YAML.
+[tool.setuptools.package-data]
+brass = [
+    "data/**/*.yaml",
+    "data/**/*.yml",
+    "data/**/*.sc",
+    "data/pysa_models/*",
+    "data/pysa_stubs/**/*.pyi",
+    "config/*.yaml",
+    "js_analysis/babel_parser.js",
+    "js_analysis/package.json",
+    "js_analysis/package-lock.json",
+    "js_analysis/node_modules/**/*",
+]
+
+# pytest config lives in pytest.ini at the repo root; pytest gives the .ini file
+# precedence over pyproject.toml, and we keep it in one place to avoid drift.

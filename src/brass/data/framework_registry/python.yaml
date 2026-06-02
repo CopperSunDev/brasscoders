@@ -1,0 +1,355 @@
+# Python framework registry — entry points, sources, sinks.
+#
+# Used by IntelligenceRanker to apply context-aware severity adjustments:
+#   - Findings inside files that contain web-route entry points get
+#     amplified severity (network-exposed code is higher stakes).
+#   - Findings inside CLI / build-script files get muted severity.
+#   - Findings whose code_snippet hits a documented sink get bumped one rung.
+#
+# Schema:
+#   entry_points: framework features that indicate this file is exposed
+#                 to external input (web routes, RPC handlers, etc.).
+#                 severity_multiplier > 1 escalates; < 1 deescalates.
+#   sources:      framework-provided tainted inputs (user-controlled data).
+#   sinks:        functions that consume tainted input dangerously
+#                 (SQL execution, subprocess, deserialization, etc.).
+#
+# `module` and `pattern` fields:
+#   - `module` is the import path that must be present in the file
+#     (substring match on `import` / `from … import` lines).
+#   - `pattern` is the source-code substring to match (decorator,
+#     function call, etc.). Brittle on purpose — high-precision
+#     beats high-recall here.
+
+entry_points:
+  # Flask + variants
+  - kind: web_route
+    framework: flask
+    module: flask
+    pattern: "@app.route"
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: flask
+    module: flask
+    pattern: ".route("
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: flask
+    module: flask
+    pattern: "Blueprint("
+    severity_multiplier: 2.0
+
+  # FastAPI
+  - kind: web_route
+    framework: fastapi
+    module: fastapi
+    pattern: "@app.get"
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: fastapi
+    module: fastapi
+    pattern: "@app.post"
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: fastapi
+    module: fastapi
+    pattern: "@app.put"
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: fastapi
+    module: fastapi
+    pattern: "@app.delete"
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: fastapi
+    module: fastapi
+    pattern: "@router."
+    severity_multiplier: 2.0
+
+  # Django
+  - kind: web_route
+    framework: django
+    module: django.urls
+    pattern: "urlpatterns"
+    severity_multiplier: 2.0
+  # Django view files — typed HttpRequest parameter is the modern marker.
+  # Require the annotation form (`request: HttpRequest`) so we don't flag
+  # files that merely `from django.http import HttpResponse, HttpRequest`
+  # without actually using it as a view parameter.
+  - kind: web_route
+    framework: django
+    module: django.http
+    pattern: "regex::\\s*HttpRequest\\b"
+    severity_multiplier: 2.0
+  # Django class-based views
+  - kind: web_route
+    framework: django
+    module: django.views
+    pattern: "View"
+    severity_multiplier: 2.0
+  # Django REST framework
+  - kind: web_route
+    framework: drf
+    module: rest_framework
+    pattern: "APIView"
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: drf
+    module: rest_framework
+    pattern: "@api_view"
+    severity_multiplier: 2.0
+
+  # FastAPI APIRouter explicit decorators (the `@router.` substring above
+  # covers these, but explicit entries help diagnostics + filtering)
+  - kind: web_route
+    framework: fastapi
+    module: fastapi
+    pattern: "APIRouter("
+    severity_multiplier: 2.0
+
+  # Starlette routes
+  - kind: web_route
+    framework: starlette
+    module: starlette
+    pattern: "Route("
+    severity_multiplier: 2.0
+
+  # Flask blueprint constructor + add_url_rule (the @bp.route case is
+  # already caught by the `.route(` substring above)
+  - kind: web_route
+    framework: flask
+    module: flask
+    pattern: ".add_url_rule("
+    severity_multiplier: 2.0
+  - kind: web_view
+    framework: django
+    module: django.views
+    # regex: class name ending in View; non-greedy + anchored to "class"
+    # to prevent any-character runs of arbitrary length.
+    pattern: "regex:^\\s*class\\s+\\w+View\\b"
+    severity_multiplier: 2.0
+
+  # CLI tools — lower stakes; tighten severity rather than escalate
+  - kind: cli_command
+    framework: click
+    module: click
+    pattern: "@click.command"
+    severity_multiplier: 0.5
+  - kind: cli_command
+    framework: click
+    module: click
+    pattern: "@cli.command"
+    severity_multiplier: 0.5
+  - kind: cli_command
+    framework: typer
+    module: typer
+    pattern: "@app.command"
+    severity_multiplier: 0.5
+  - kind: cli_command
+    framework: argparse
+    module: argparse
+    pattern: "ArgumentParser("
+    severity_multiplier: 0.5
+  - kind: cli_command
+    framework: argparse
+    module: argparse
+    pattern: "parse_args("
+    severity_multiplier: 0.5
+
+  # Task queues / background workers — input is internal but still external-ish
+  - kind: task_worker
+    framework: celery
+    module: celery
+    pattern: "@app.task"
+    severity_multiplier: 1.5
+  - kind: task_worker
+    framework: rq
+    module: rq
+    pattern: "Queue("
+    severity_multiplier: 1.5
+
+  # AWS Lambda — external trigger
+  - kind: lambda_handler
+    framework: aws_lambda
+    module: ""
+    pattern: "def lambda_handler"
+    severity_multiplier: 2.0
+
+sources:
+  # Flask request data — all user-controlled
+  - kind: http_request
+    framework: flask
+    module: flask
+    pattern: "request.args"
+  - kind: http_request
+    framework: flask
+    module: flask
+    pattern: "request.form"
+  - kind: http_request
+    framework: flask
+    module: flask
+    pattern: "request.json"
+  - kind: http_request
+    framework: flask
+    module: flask
+    pattern: "request.data"
+  - kind: http_request
+    framework: flask
+    module: flask
+    pattern: "request.values"
+  - kind: http_request
+    framework: flask
+    module: flask
+    pattern: "request.cookies"
+  - kind: http_request
+    framework: flask
+    module: flask
+    pattern: "request.headers"
+
+  # FastAPI dependencies / body
+  - kind: http_request
+    framework: fastapi
+    module: fastapi
+    pattern: "Body("
+  - kind: http_request
+    framework: fastapi
+    module: fastapi
+    pattern: "Query("
+  - kind: http_request
+    framework: fastapi
+    module: fastapi
+    pattern: "Form("
+
+  # Django request
+  - kind: http_request
+    framework: django
+    module: django
+    pattern: "request.GET"
+  - kind: http_request
+    framework: django
+    module: django
+    pattern: "request.POST"
+  - kind: http_request
+    framework: django
+    module: django
+    pattern: "request.body"
+
+  # Environment / stdin / argv (lower trust than HTTP but still external)
+  - kind: env_input
+    framework: stdlib
+    module: os
+    pattern: "os.environ"
+  - kind: stdin_input
+    framework: stdlib
+    module: sys
+    pattern: "sys.stdin"
+  - kind: argv_input
+    framework: stdlib
+    module: sys
+    pattern: "sys.argv"
+
+sinks:
+  # SQL execution — the canonical injection sink
+  - kind: sql_execution
+    severity_bump: 1
+    framework: sqlite3
+    module: sqlite3
+    pattern: ".execute("
+  - kind: sql_execution
+    severity_bump: 1
+    framework: psycopg2
+    module: psycopg2
+    pattern: ".execute("
+  - kind: sql_execution
+    severity_bump: 1
+    framework: django.db
+    module: django.db
+    pattern: ".raw("
+  - kind: sql_execution
+    severity_bump: 1
+    framework: sqlalchemy
+    module: sqlalchemy
+    pattern: "text("
+  - kind: sql_execution
+    severity_bump: 1
+    framework: pymysql
+    module: pymysql
+    pattern: ".execute("
+
+  # Shell / subprocess
+  - kind: shell_execution
+    severity_bump: 1
+    framework: subprocess
+    module: subprocess
+    pattern: "subprocess.run"
+    condition: "shell=True"
+  - kind: shell_execution
+    severity_bump: 1
+    framework: subprocess
+    module: subprocess
+    pattern: "subprocess.call"
+    condition: "shell=True"
+  - kind: shell_execution
+    severity_bump: 1
+    framework: subprocess
+    module: subprocess
+    pattern: "subprocess.Popen"
+    condition: "shell=True"
+  - kind: shell_execution
+    severity_bump: 1
+    framework: stdlib
+    module: os
+    pattern: "os.system("
+
+  # Code execution
+  - kind: code_execution
+    severity_bump: 2
+    framework: stdlib
+    module: ""
+    pattern: "eval("
+  - kind: code_execution
+    severity_bump: 2
+    framework: stdlib
+    module: ""
+    pattern: "exec("
+
+  # Unsafe deserialization
+  - kind: deserialization
+    severity_bump: 1
+    framework: pickle
+    module: pickle
+    pattern: "pickle.load"
+  - kind: deserialization
+    severity_bump: 1
+    framework: pickle
+    module: pickle
+    pattern: "pickle.loads"
+  - kind: deserialization
+    severity_bump: 1
+    framework: yaml
+    module: yaml
+    pattern: "yaml.load("
+    condition_not: "Loader=SafeLoader"
+
+  # SSRF — outbound HTTP with potentially-tainted URL
+  - kind: ssrf
+    severity_bump: 1
+    framework: requests
+    module: requests
+    pattern: "requests.get"
+  - kind: ssrf
+    severity_bump: 1
+    framework: requests
+    module: requests
+    pattern: "requests.post"
+  - kind: ssrf
+    severity_bump: 1
+    framework: urllib
+    module: urllib
+    pattern: "urlopen("
+
+  # NOTE: `open(` is intentionally NOT a sink. It's the canonical
+  # Python file API and fires on every file that reads or writes
+  # anything. Actual path-traversal risk requires taint tracking
+  # (user-controlled path reaching `open`) — that's Capability 3
+  # (Joern). Pattern-matching it here just inflates severity globally.

@@ -1,0 +1,82 @@
+rules:
+  - id: brass.python.taint.command-injection
+    mode: taint
+    severity: ERROR
+    languages: [python]
+    message: >-
+      Tainted HTTP request data reaches a shell execution sink. Pass an
+      argument list (not a shell string) and avoid shell=True. Validate or
+      whitelist any user-controlled values that select binaries or paths.
+    metadata:
+      category: security
+      cwe: "CWE-78"
+      brass_kind: command_injection
+    pattern-sources:
+      - pattern: request.args
+      - pattern: request.args.get(...)
+      - pattern: request.form
+      - pattern: request.form.get(...)
+      - pattern: request.json
+      - pattern: request.get_json(...)
+      - pattern: request.values
+      - pattern: request.values.get(...)
+      - pattern: request.data
+      - pattern: request.GET
+      - pattern: request.POST
+      - pattern: request.body
+      - patterns:
+          - pattern-inside: |
+              @$APP.route(...)
+              def $FUNC(..., $PARAM, ...):
+                ...
+          - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-inside: |
+              @$APP.route(...)
+              def $FUNC($PARAM, ...):
+                ...
+          - focus-metavariable: $PARAM
+      # Django views — only when the request parameter has the HttpRequest
+      # type annotation. Without the annotation `request` is too broad.
+      - patterns:
+          - pattern-inside: |
+              def $FUNC($REQ: HttpRequest, ...):
+                ...
+          - focus-metavariable: $REQ
+      - patterns:
+          - pattern-inside: |
+              def $FUNC($REQ: HttpRequest):
+                ...
+          - focus-metavariable: $REQ
+      # FastAPI / Starlette dependency-injection parameters
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Path(...), ...):
+                ...
+          - focus-metavariable: $V
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Query(...), ...):
+                ...
+          - focus-metavariable: $V
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Body(...), ...):
+                ...
+          - focus-metavariable: $V
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Form(...), ...):
+                ...
+          - focus-metavariable: $V
+    pattern-sinks:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern: subprocess.run(...)
+                  - pattern: subprocess.call(...)
+                  - pattern: subprocess.check_output(...)
+                  - pattern: subprocess.Popen(...)
+              - pattern: $F(..., shell=True, ...)
+          - pattern: os.system(...)
+          - pattern: os.popen(...)

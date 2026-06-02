@@ -1,0 +1,124 @@
+# System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+/build/
+develop-eggs/
+/dist/
+downloads/
+eggs/
+.eggs/
+# Root-only — the un-scoped form was matching node_modules/<pkg>/lib/
+# and silently truncating npm packages (notably @babel/parser/lib/),
+# which broke CI when node_modules wasn't tracked but partial pieces
+# of it were. Keep these anchored.
+/lib/
+/lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Brass output directories (except for examples/documentation)
+.brass/
+
+# Log files (except legitimate examples in test_deployment)
+*.log
+!test_deployment/.brass/brass.log
+
+# Test deployment artifacts - exclude temporary/debug files
+test_deployment/.brass/test_*.log
+
+# Temporary files
+*.tmp
+*.temp
+.cache/.brass_self_analysis/
+test_deployment/.brass_test_results/
+*.DS_Store
+
+# Self-analysis output (running brassai on its own source)
+.brass_self_analysis/
+
+# Local triage notes (intentionally not version-controlled)
+.brass-review-triage.md
+
+# Dev scratchpads — debugging scripts and one-off QA reports
+# accumulated during development. They live in the working tree but
+# don't belong in the repo.
+analyze_*.py
+check_*.py
+debug_*.py
+final_integration_test.py
+identify_potential_bugs.py
+measure_tool_performance.py
+new_failure_scenarios_analysis.py
+production_readiness_test.py
+quick_*.py
+run_api_security_tests.py
+ultrareview_*.py
+validate_refactoring.py
+validation_test_suite.py
+verify_performance_fix.py
+brass_scan.out
+test_*.py.backup
+test_*.py.bak
+
+# Root-level QA reports (legitimate test files live in tests/)
+/test_*.py
+/test_*/
+*_QA_*.md
+BUGSCAN_*.md
+BUGFIX_*.md
+PARALLEL_PROCESSING_*.md
+PERFORMANCE_OPTIMIZATION_*.md
+LARGE_PROJECT_*.md
+PROFESSIONAL_CODE_SCANNER_*.md
+
+# Node.js — installed by CI via npm ci, never committed.
+node_modules/
+
+
+# Benchmark fixture project (regenerated each run by scripts/benchmark_real_projects.py)
+tests/benchmark_fixture_project/
+
+# Pyre/Pysa cache directories
+**/.pyre/
+**/.pyre_configuration
+**/taint_models/
+
+
+# Agent worktrees (auto-created by Agent isolation: worktree)
+.claude/

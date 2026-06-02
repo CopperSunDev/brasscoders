@@ -1,0 +1,4 @@
+# Clones live here — they're third-party code at pinned SHAs and
+# must never enter brass's git history. The clone script fetches
+# them on demand into _clones/<project>/.
+_clones/

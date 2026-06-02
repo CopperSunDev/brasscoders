@@ -1,0 +1,13 @@
+{
+  "name": "brass-js-analysis",
+  "version": "1.0.0",
+  "description": "Node.js utilities for JavaScript/TypeScript analysis in BrassCoders System",
+  "main": "babel_parser.js",
+  "dependencies": {
+    "@babel/parser": "^7.23.0",
+    "@babel/traverse": "^7.23.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

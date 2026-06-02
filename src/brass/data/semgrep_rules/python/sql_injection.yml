@@ -1,0 +1,77 @@
+rules:
+  - id: brass.python.taint.sql-injection
+    mode: taint
+    severity: ERROR
+    languages: [python]
+    message: >-
+      Tainted HTTP request data reaches a SQL execution sink without
+      parameterization. Use prepared statements (positional or named
+      parameters) instead of f-string / concatenation construction.
+    metadata:
+      category: security
+      cwe: "CWE-89"
+      brass_kind: sql_injection
+    pattern-sources:
+      - pattern: request.args
+      - pattern: request.args.get(...)
+      - pattern: request.form
+      - pattern: request.form.get(...)
+      - pattern: request.json
+      - pattern: request.get_json(...)
+      - pattern: request.values
+      - pattern: request.values.get(...)
+      - pattern: request.data
+      - pattern: request.GET
+      - pattern: request.POST
+      - pattern: request.body
+      - patterns:
+          - pattern-inside: |
+              @$APP.route(...)
+              def $FUNC(..., $PARAM, ...):
+                ...
+          - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-inside: |
+              @$APP.route(...)
+              def $FUNC($PARAM, ...):
+                ...
+          - focus-metavariable: $PARAM
+      # Django views — only when the request parameter has the HttpRequest
+      # type annotation. Without the annotation `request` is too broad.
+      - patterns:
+          - pattern-inside: |
+              def $FUNC($REQ: HttpRequest, ...):
+                ...
+          - focus-metavariable: $REQ
+      - patterns:
+          - pattern-inside: |
+              def $FUNC($REQ: HttpRequest):
+                ...
+          - focus-metavariable: $REQ
+      # FastAPI / Starlette dependency-injection parameters
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Path(...), ...):
+                ...
+          - focus-metavariable: $V
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Query(...), ...):
+                ...
+          - focus-metavariable: $V
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Body(...), ...):
+                ...
+          - focus-metavariable: $V
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Form(...), ...):
+                ...
+          - focus-metavariable: $V
+    pattern-sinks:
+      - pattern-either:
+          - pattern: $CURSOR.execute(...)
+          - pattern: $CURSOR.executemany(...)
+          - pattern: $CONN.execute(...)
+          - pattern: connection.execute(...)

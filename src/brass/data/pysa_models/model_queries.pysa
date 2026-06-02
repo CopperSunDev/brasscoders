@@ -1,0 +1,51 @@
+# Pysa ModelQueries: dynamic source/sink discovery.
+#
+# These let us taint patterns we can't enumerate by name — e.g. "every
+# parameter of every @app.route-decorated function" without listing each
+# route handler manually. Critical for Flask path-parameter sources.
+
+# Flask route handler parameters → UserControlled source.
+# `name.matches` is regex over the decorator's source text.
+# Anchor on the dot prefix: `@app.route("/x")` → source contains
+# `.route`. `@cache_route` and `@async_route_handler` have no
+# preceding dot so they don't match. (Earlier attempt to also anchor on
+# the trailing `\\(` triggered Pyre's regex compiler to fail with
+# Re2 "missing )" on the over-escaped string — the trailing open-paren
+# escape is unnecessary anyway since `.route` alone already pinpoints
+# Flask routes uniquely.)
+# NOTE: A `Decorator(name.matches("route"))` query was tried and
+# removed (commit 2026-05-13 perf #2 follow-up). The substring match
+# caused Pysa to expand model generation across every function with
+# "route" in any decorator name. On coppersun_brass this took Pysa
+# from 122s → 506s — pushing the project past the 10min per-project
+# benchmark timeout. Tighter regex forms (`\\.route\\(`, `\\.route$`,
+# `\\.route`) all failed Pyre's regex pipeline (Re2 errors or 0
+# models generated).
+#
+# Trade-off accepted: lose Flask `@app.route("/x/<user_id>")` path-
+# parameter tainting (un-typed function args). Customers still get
+# the more common `request.args.get(...)` source coverage via the
+# `flask.Request.*` models in third_party.pysa. Cross-module taint
+# in the vulnerable-flask-app fixture is now only caught by the
+# Cap 2 ast-grep sink patterns, not by Pysa.
+#
+# Revisit if/when:
+#   - we find a Pyre-accepted constraint expression for "matches this
+#     decorator AND only on these files" (file-scoped model queries),
+#   - or a future Pyre release accepts a more anchored regex form.
+
+# FastAPI / generic HTTP-verb decorators: @app.get, @router.post, etc.
+# Use word-boundary regex on the verb names; bare regex like "get" would
+# also match "set_get" or similar, but Pyre's decorator-name field for
+# @<expr>.get(...) appears to be just the method name `get`. Empirically
+# this generates non-zero models on Flask projects.
+ModelQuery(
+  name = "http_verb_decorator_params_are_sources",
+  find = "functions",
+  where = [
+    Decorator(name.matches("^(get|post|put|delete|patch)$"))
+  ],
+  model = [
+    AllParameters(TaintSource[UserControlled])
+  ]
+)

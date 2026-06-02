@@ -1,0 +1,44 @@
+rules:
+  - id: brass.javascript.taint.xss-dangerously-set-inner-html
+    mode: taint
+    severity: ERROR
+    languages: [javascript, typescript]
+    message: >-
+      Tainted HTTP request data reaches React's dangerouslySetInnerHTML
+      (or direct innerHTML assignment). Sanitize via DOMPurify, encode
+      with an escape helper, or render the value as text instead.
+    metadata:
+      category: security
+      cwe: "CWE-79"
+      brass_kind: xss
+    pattern-sources:
+      - pattern: req.query
+      - pattern: req.query.$X
+      - pattern: req.body
+      - pattern: req.body.$X
+      - pattern: req.params
+      - pattern: req.params.$X
+      - pattern: req.cookies
+      - pattern: req.cookies.$X
+      - patterns:
+          - pattern-inside: |
+              export async function $METHOD($REQ: $$$) {
+                ...
+              }
+          - focus-metavariable: $REQ
+      - patterns:
+          - pattern-inside: |
+              export async function $METHOD($REQ) {
+                ...
+              }
+          - focus-metavariable: $REQ
+    pattern-sinks:
+      # React JSX
+      - pattern: "{dangerouslySetInnerHTML: {__html: $X}}"
+      # DOM
+      - pattern: $EL.innerHTML = $X
+      - pattern: $EL.outerHTML = $X
+      - pattern: document.write($X)
+      - pattern: document.writeln($X)
+      # jQuery
+      - pattern: $JQ.html($X)

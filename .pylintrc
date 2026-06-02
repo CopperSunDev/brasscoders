@@ -1,0 +1,103 @@
+[MAIN]
+# Load plugins for specific analysis
+load-plugins = pylint.extensions.docparams
+
+# Python version for analysis
+py-version = 3.8
+
+# Ignore specific directories
+ignore = CVS,.git,__pycache__,.tox,.eggs,*.egg
+
+# Ignore specific file patterns
+ignore-patterns = ^\\.#,.*_test\\.py$,test_.*\\.py$
+
+[MESSAGES CONTROL]
+# Disable noise-generating style checks that don't affect code quality
+# Focus on genuine bugs, security issues, and maintainability problems
+disable = 
+    # Formatting/style (not actual code issues - let formatters handle these)
+    C0303,  # trailing-whitespace
+    C0304,  # missing-final-newline
+    C0301,  # line-too-long (let black handle this)
+    C0411,  # wrong-import-order
+    C0412,  # ungrouped-imports
+    C0413,  # wrong-import-position
+    C0114,  # missing-module-docstring (not critical for functionality)
+    C0115,  # missing-class-docstring (nice to have but not critical)
+    C0116,  # missing-function-docstring (nice to have but not critical)
+    # Overly restrictive design checks
+    R0903,  # too-few-public-methods (common in test classes, dataclasses)
+    R0913,  # too-many-arguments (common in test setup, configuration)
+    R0914,  # too-many-locals (sometimes necessary for complex logic)
+    R0915,  # too-many-statements (sometimes necessary for initialization)
+    R0912,  # too-many-branches (sometimes necessary for error handling)
+    R0902,  # too-many-instance-attributes (common in configuration classes)
+    # Test and development specific suppressions
+    W0212,  # protected-access (needed for testing private methods)
+    W0621,  # redefined-outer-name (common with pytest fixtures)
+    W0613,  # unused-argument (common in test fixtures and event handlers)
+    W0622,  # redefined-builtin (sometimes needed for parameter names)
+    # False positive prone checks
+    C0103,  # invalid-name (too restrictive for legitimate short variable names)
+    W0511,  # fixme (TODO comments are legitimate development tools)
+    # Major noise generators identified from analysis (focus on genuine bugs only)
+    W0611,  # unused-import (often used for module initialization, type checking)
+    W1203,  # f-string-without-interpolation (stylistic, not functional issue)
+    W0718,  # broad-exception-caught (sometimes necessary for robust error handling)
+    C0415,  # import-outside-toplevel (sometimes needed for conditional imports)
+    C0321,  # multiple-statements (stylistic preference, not a bug)
+    E1101,  # no-member (high false positive rate with dynamic Python)
+    R1705,  # no-else-return (stylistic preference, both patterns are valid)
+    W1514,  # unspecified-encoding (often not needed for binary files)
+    R1711,  # useless-return (sometimes used for clarity)
+    W0640,  # cell-var-from-loop (often false positive in comprehensions)
+    E0401,  # import-error (false positives with dynamic imports)
+    W0404,  # reimported (sometimes intentional for module reloading)
+    W0108,  # unnecessary-lambda (sometimes needed for readability)
+    R1702,  # too-many-nested-blocks (sometimes necessary for complex logic)
+
+[FORMAT]
+# Set reasonable line length
+max-line-length = 120
+
+# Don't enforce specific indentation style
+indent-string = "    "
+
+[DESIGN]
+# Relax design constraints for cleaner analysis
+max-args = 8
+max-locals = 20
+max-branches = 15
+max-statements = 60
+min-public-methods = 1
+
+[BASIC]
+# Allow common test naming patterns
+good-names = i,j,k,ex,Run,_,setUp,tearDown,test_,mock_
+
+# Test file patterns should be more permissive
+argument-naming-style = snake_case
+attr-naming-style = snake_case
+class-naming-style = PascalCase
+const-naming-style = UPPER_CASE
+function-naming-style = snake_case
+method-naming-style = snake_case
+module-naming-style = snake_case
+variable-naming-style = snake_case
+
+[SIMILARITIES]
+# Reduce false positives from similar test patterns
+min-similarity-lines = 6
+ignore-comments = yes
+ignore-docstrings = yes
+ignore-imports = yes
+
+[TYPECHECK]
+# Reduce false positives for dynamic attributes
+ignored-classes = optparse.Values,thread._local,_thread._local
+ignored-modules = 
+
+[REPORTS]
+# Disable scoring and reports for cleaner output
+reports = no
+score = no

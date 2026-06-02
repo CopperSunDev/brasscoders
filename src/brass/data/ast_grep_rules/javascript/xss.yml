@@ -1,0 +1,15 @@
+id: brass.javascript.xss-dangerouslysetinnerhtml-with-interpolation
+language: javascript
+rule:
+  any:
+    - pattern: $EL.innerHTML = `$$$${$X}$$$`
+    - pattern: $EL.outerHTML = `$$$${$X}$$$`
+    - pattern: document.write(`$$$${$X}$$$`)
+severity: warning
+message: >-
+  HTML built via template-literal interpolation written to the DOM
+  (innerHTML / outerHTML / document.write). Sanitize the value via
+  DOMPurify or use textContent for plain text.
+metadata:
+  brass_kind: xss
+  cwe: CWE-79

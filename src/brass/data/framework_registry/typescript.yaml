@@ -1,0 +1,165 @@
+# TypeScript framework registry — entry points, sources, sinks.
+# Schema documented in python.yaml. Used for .ts / .tsx files.
+#
+# Covers the same JS frameworks but adds TypeScript-specific stacks:
+# Next.js App Router, NestJS, Remix, SvelteKit. Most JS patterns from
+# javascript.yaml apply too — the framework_registry loader merges
+# both files for .ts/.tsx so we don't duplicate Express/Koa/etc here.
+
+entry_points:
+  # Next.js App Router — files in app/ matching route conventions.
+  # Single regex covers GET/POST/PUT/DELETE/PATCH; non-greedy and
+  # anchored to a single line to avoid runaway matches in minified JS.
+  - kind: web_route
+    framework: next
+    module: next
+    pattern: "regex:(?m)^\\s*export\\s+(default\\s+)?async\\s+function\\s+(GET|POST|PUT|DELETE|PATCH)\\s*\\("
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: next_pages
+    module: next
+    pattern: "export default function handler"
+    severity_multiplier: 2.0
+
+  # NestJS — decorator-based
+  - kind: web_route
+    framework: nestjs
+    module: "@nestjs/common"
+    pattern: "@Controller("
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: nestjs
+    module: "@nestjs/common"
+    pattern: "@Get("
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: nestjs
+    module: "@nestjs/common"
+    pattern: "@Post("
+    severity_multiplier: 2.0
+
+  # Remix — `export const action` / `export async function action`
+  - kind: web_route
+    framework: remix
+    module: "@remix-run"
+    pattern: "regex:(?m)^\\s*export\\s+(const|async\\s+function|function)\\s+action\\b"
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: remix
+    module: "@remix-run"
+    pattern: "regex:(?m)^\\s*export\\s+(const|async\\s+function|function)\\s+loader\\b"
+    severity_multiplier: 1.8
+
+  # SvelteKit
+  - kind: web_route
+    framework: sveltekit
+    module: "@sveltejs/kit"
+    pattern: "regex:(?m)^\\s*export\\s+(const|async\\s+function|function)\\s+POST\\b"
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: sveltekit
+    module: "@sveltejs/kit"
+    pattern: "regex:(?m)^\\s*export\\s+(const|async\\s+function|function)\\s+GET\\b"
+    severity_multiplier: 2.0
+
+  # tRPC
+  - kind: rpc_handler
+    framework: trpc
+    module: "@trpc/server"
+    pattern: ".mutation("
+    severity_multiplier: 1.8
+  - kind: rpc_handler
+    framework: trpc
+    module: "@trpc/server"
+    pattern: ".query("
+    severity_multiplier: 1.8
+
+  # Hono
+  - kind: web_route
+    framework: hono
+    module: hono
+    pattern: ".get("
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: hono
+    module: hono
+    pattern: ".post("
+    severity_multiplier: 2.0
+
+  # Cloudflare Workers
+  - kind: worker_handler
+    framework: cloudflare_workers
+    module: ""
+    pattern: "export default {"
+    severity_multiplier: 2.0
+
+sources:
+  # Next.js route handlers — request is the first arg
+  - kind: http_request
+    framework: next
+    module: next
+    pattern: "request.json()"
+  - kind: http_request
+    framework: next
+    module: next
+    pattern: "request.formData()"
+  - kind: http_request
+    framework: next
+    module: next
+    pattern: "request.headers"
+  - kind: http_request
+    framework: next
+    module: next
+    pattern: "searchParams.get"
+
+  # NestJS dependency injection
+  - kind: http_request
+    framework: nestjs
+    module: "@nestjs/common"
+    pattern: "@Body("
+  - kind: http_request
+    framework: nestjs
+    module: "@nestjs/common"
+    pattern: "@Query("
+  - kind: http_request
+    framework: nestjs
+    module: "@nestjs/common"
+    pattern: "@Param("
+
+  # Remix
+  - kind: http_request
+    framework: remix
+    module: "@remix-run"
+    pattern: "request.formData"
+
+sinks:
+  # SQL (Prisma, Drizzle, raw)
+  - kind: sql_execution
+    severity_bump: 1
+    framework: prisma
+    module: "@prisma/client"
+    pattern: ".$queryRaw"
+  - kind: sql_execution
+    severity_bump: 1
+    framework: prisma
+    module: "@prisma/client"
+    pattern: ".$executeRaw"
+  - kind: sql_execution
+    severity_bump: 1
+    framework: drizzle
+    module: drizzle-orm
+    pattern: ".execute("
+
+  # XSS — React / Next
+  - kind: xss_sink
+    severity_bump: 1
+    framework: react
+    module: react
+    pattern: "dangerouslySetInnerHTML"
+
+  # Server actions (Next 13+) — special; can be invoked from client
+  - kind: server_action
+    severity_bump: 1
+    framework: next
+    module: ""
+    pattern: "'use server'"

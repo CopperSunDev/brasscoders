@@ -1,0 +1,50 @@
+rules:
+  - id: brass.javascript.taint.command-injection
+    mode: taint
+    severity: ERROR
+    languages: [javascript, typescript]
+    message: >-
+      Tainted HTTP request data reaches a shell execution sink. Pass an
+      argument array and avoid shell-string concatenation. Validate or
+      whitelist any binary/path that comes from user input.
+    metadata:
+      category: security
+      cwe: "CWE-78"
+      brass_kind: command_injection
+    pattern-sources:
+      - pattern: req.query
+      - pattern: req.query.$X
+      - pattern: req.body
+      - pattern: req.body.$X
+      - pattern: req.params
+      - pattern: req.params.$X
+      - pattern: req.cookies
+      - pattern: req.cookies.$X
+      - pattern: req.headers
+      - pattern: req.headers.$X
+      - patterns:
+          - pattern-inside: |
+              export async function $METHOD($REQ: $$$) {
+                ...
+              }
+          - focus-metavariable: $REQ
+      - patterns:
+          - pattern-inside: |
+              export async function $METHOD($REQ) {
+                ...
+              }
+          - focus-metavariable: $REQ
+    pattern-sinks:
+      # child_process — shell forms
+      - pattern: child_process.exec(`...`, ...)
+      - pattern: child_process.exec($CMD, ...)
+      - pattern: child_process.execSync(`...`, ...)
+      - pattern: child_process.execSync($CMD)
+      - pattern: exec(`...`, ...)
+      - pattern: execSync(`...`)
+      # child_process.spawn with shell:true (rare but valid)
+      - pattern: "child_process.spawn($CMD, $ARGS, {shell: true, ...})"
+      - pattern: "spawn($CMD, $ARGS, {shell: true, ...})"
+      # shelljs
+      - pattern: shelljs.exec(`...`)
+      - pattern: shell.exec(`...`)

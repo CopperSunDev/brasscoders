@@ -1,0 +1,119 @@
+# Expected findings for Yelp detect-secrets test_data/ at commit
+# 01886c8a910c64595c47f186ca1ffc0b77fa5458 (detect-secrets v1.5.0).
+#
+# detect-secrets' test_data/ directory has a curated multi-file
+# fixture corpus exercising the library's core plugins: AWS, Basic
+# Auth, high-entropy strings, keyword-based detection. Since brass
+# uses detect-secrets internally via SecretsScanner, these fixtures
+# are the canonical "did brass keep up with detect-secrets'
+# detection surface?" regression suite.
+#
+# Note: plugin-specific token shapes (GitHub PAT, Stripe sk_live_,
+# Slack xoxb-, JWT, etc.) live in detect-secrets' unit-test internal
+# fixtures (tests/plugins/<plugin>_test.py) rather than test_data/.
+# Adding those as benchmark inputs would require constructing a
+# synthetic corpus, which belongs in a future iteration.
+
+project: detect_secrets_fixtures
+upstream: https://github.com/Yelp/detect-secrets
+pinned_sha: 01886c8a910c64595c47f186ca1ffc0b77fa5458
+upstream_reference: v1.5.0 release tag
+baseline_scan_date: '2026-05-17'
+
+# Scan only test_data/ to avoid scanning detect-secrets' own
+# implementation source (which would dominate the scan output and
+# surface plugin definitions as "secrets" via keyword matches).
+scan_subpath: test_data
+
+# Findings the e2e test REQUIRES brass to produce on this commit.
+required_findings:
+  - file: each_secret.py
+    line: 6
+    category: hardcoded_credential
+    expected_scanner: SecretsScanner
+    vulnerability_class: 'Basic Auth Credentials in URL (CWE-798)'
+    notes: |
+      detect-secrets BasicAuthDetector. brass surfaces as
+      "Possible Basic Auth Credentials" high-severity finding.
+
+  - file: each_secret.py
+    line: 8
+    category: hardcoded_credential
+    expected_scanner: SecretsScanner
+    vulnerability_class: 'AWS Access Key (CWE-798)'
+    notes: |
+      detect-secrets AWSKeyDetector matches the AKIA-prefixed key.
+      brass surfaces as "Possible AWS Access Key" critical-severity.
+
+  - file: each_secret.py
+    line: 9
+    category: hardcoded_credential
+    expected_scanner: SecretsScanner
+    vulnerability_class: 'AWS Secret Access Key (CWE-798)'
+    notes: |
+      detect-secrets AWSKeyDetector fires on the wJalr... secret
+      key. brass surfaces as "Possible AWS Access Key" critical
+      (same detector label for both halves of the key pair).
+
+  - file: each_secret.py
+    line: 4
+    category: hardcoded_credential
+    expected_scanner: SecretsScanner
+    vulnerability_class: 'High Entropy Base64 String (CWE-798)'
+    notes: |
+      detect-secrets Base64HighEntropyString detector. brass
+      surfaces as "Possible Base64 High Entropy String" medium-
+      severity (plus a parallel "Possible Secret Keyword" finding
+      from the KeywordDetector on the same line).
+
+  - file: each_secret.py
+    line: 5
+    category: hardcoded_credential
+    expected_scanner: SecretsScanner
+    vulnerability_class: 'High Entropy Hex String (CWE-798)'
+    notes: |
+      detect-secrets HexHighEntropyString detector. brass surfaces
+      as "Possible Hex High Entropy String" medium-severity.
+
+  - file: config.ini
+    line: 32
+    category: hardcoded_credential
+    expected_scanner: SecretsScanner
+    vulnerability_class: 'Keyword-based Secret Detection (CWE-798)'
+    notes: |
+      detect-secrets KeywordDetector + entropy combination on
+      "real_secret_which_isnt_an_i_d" — tests the keyword-with-
+      qualifying-entropy path. brass surfaces this reliably.
+
+# detect-secrets plugins whose fixture shapes don't appear in
+# test_data/ — would need a synthetic corpus to benchmark properly.
+# Listed as aspirational so a future fixture-building iteration can
+# promote these to required_findings.
+aspirational_findings:
+  - file: each_secret.py
+    line: 99
+    category: hardcoded_credential
+    upstream_documents_as: 'GitHub PAT (ghp_...) — no fixture in test_data/'
+    why_not_detected: |
+      detect-secrets has a GitHubTokenDetector plugin but the
+      shipped test_data/ corpus doesn't include a GitHub token
+      fixture. Adding `github_pat = 'ghp_...'` to a synthetic
+      benchmark file would let us assert the plugin still fires.
+
+  - file: each_secret.py
+    line: 99
+    category: hardcoded_credential
+    upstream_documents_as: 'Stripe sk_live_... — no fixture in test_data/'
+    why_not_detected: |
+      detect-secrets has a StripeDetector plugin (matches sk_live_
+      / pk_live_ prefixes); no fixture exists in test_data/.
+      Same root cause as the GitHub PAT entry.
+
+  - file: each_secret.py
+    line: 99
+    category: hardcoded_credential
+    upstream_documents_as: 'JWT eyJ... — no fixture in test_data/'
+    why_not_detected: |
+      detect-secrets has a JwtTokenDetector plugin; no fixture
+      exists in test_data/. Worth adding a synthetic JWT to a
+      future iteration to assert JWT detection stays wired.

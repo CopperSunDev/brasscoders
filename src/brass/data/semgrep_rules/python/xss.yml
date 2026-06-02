@@ -1,0 +1,86 @@
+rules:
+  - id: brass.python.taint.xss-template-injection
+    mode: taint
+    severity: ERROR
+    languages: [python]
+    message: >-
+      Tainted HTTP request data is rendered as a template string. Use
+      render_template (which auto-escapes) and pass user input via the
+      context dict instead of interpolating into the template source.
+    metadata:
+      category: security
+      cwe: "CWE-79"
+      brass_kind: xss
+    pattern-sources:
+      - pattern: request.args
+      - pattern: request.args.get(...)
+      - pattern: request.form
+      - pattern: request.form.get(...)
+      - pattern: request.json
+      - pattern: request.get_json(...)
+      - pattern: request.values
+      - pattern: request.values.get(...)
+      - pattern: request.data
+      - pattern: request.GET
+      - pattern: request.POST
+      - pattern: request.body
+      - patterns:
+          - pattern-inside: |
+              @$APP.route(...)
+              def $FUNC(..., $PARAM, ...):
+                ...
+          - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-inside: |
+              @$APP.route(...)
+              def $FUNC($PARAM, ...):
+                ...
+          - focus-metavariable: $PARAM
+      # Django views — only when the request parameter has the HttpRequest
+      # type annotation. Without the annotation `request` is too broad.
+      - patterns:
+          - pattern-inside: |
+              def $FUNC($REQ: HttpRequest, ...):
+                ...
+          - focus-metavariable: $REQ
+      - patterns:
+          - pattern-inside: |
+              def $FUNC($REQ: HttpRequest):
+                ...
+          - focus-metavariable: $REQ
+      # FastAPI / Starlette dependency-injection parameters
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Path(...), ...):
+                ...
+          - focus-metavariable: $V
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Query(...), ...):
+                ...
+          - focus-metavariable: $V
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Body(...), ...):
+                ...
+          - focus-metavariable: $V
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Form(...), ...):
+                ...
+          - focus-metavariable: $V
+    pattern-sinks:
+      # Flask raw-template render — bypasses autoescape
+      - pattern: render_template_string(...)
+      - pattern: flask.render_template_string(...)
+      # Markup() / Markup.escape with tainted input
+      - pattern: Markup(...)
+      - pattern: flask.Markup(...)
+      # Direct HttpResponse with explicit HTML content_type. Bare
+      # HttpResponse($X) without content_type is too broad — every Django
+      # view returning a string would flag.
+      - pattern: HttpResponse($X, content_type="text/html")
+      - pattern: HttpResponse($X, content_type='text/html')
+      # Django mark_safe
+      - pattern: mark_safe(...)
+      - pattern: django.utils.safestring.mark_safe(...)

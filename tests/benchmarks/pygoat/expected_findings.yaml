@@ -1,0 +1,149 @@
+# Expected findings for OWASP PyGoat v2.0.1 at commit
+# c11e8429349cc05ff38564d3bf7ef09fb2411874.
+#
+# Source: brass scan output 2026-05-17. Each entry below is a finding
+# brass CURRENTLY detects on this pinned commit; the e2e test asserts
+# every required: true entry is present in the scan output. A future
+# brass commit that drops one of these signals fails the benchmark
+# loudly, with the specific scanner that should have caught it
+# annotated for triage.
+#
+# Aspirational entries (required: false) track documented PyGoat
+# vulnerabilities that brass DOESN'T currently detect — pickle.loads
+# at L211, eval() at L451, SQL injection by string concat at L155 /
+# L855. These don't fail the test today but mark the gap so a future
+# brass improvement that adds detection is easy to celebrate.
+
+project: pygoat
+upstream: https://github.com/adeyosemanputra/pygoat
+pinned_sha: c11e8429349cc05ff38564d3bf7ef09fb2411874
+upstream_reference: v2.0.1 release tag
+baseline_scan_date: '2026-05-17'
+
+# IMPORTANT: this manifest tracks what brass produces UNDER THE TEST
+# HARNESS (HOME-isolated subprocess, BRASS_AUTOFETCH_TYPESHED=1, no
+# .brassignore). The test harness's output differs from a direct
+# `brasscoders scan` invocation in a developer shell — different scanner
+# availability, different cache state, different env. The harness
+# output is the canonical baseline because it's reproducible
+# across machines; the direct-shell output isn't.
+#
+# A finding's presence here means brass detected it under harness
+# conditions on 2026-05-17 and we want a regression alert if a
+# future scan drops it. Findings brass detects in some environments
+# but not the harness's belong in `aspirational_findings`.
+
+# Findings the e2e test REQUIRES brass to produce on this commit.
+# Dropping any of these in a future scan is a regression signal.
+required_findings:
+  - file: introduction/views.py
+    line: 857
+    category: hardcoded_credential
+    expected_scanner: auth_pattern_analyzer
+    vulnerability_class: 'Hardcoded Credentials (CWE-798)'
+    notes: |
+      brass's AI-auth pattern analyzer reliably catches the
+      hardcoded SQL-lab admin password literal here. Stable
+      across enriched + heuristic-only + isolated-harness scans.
+
+  - file: introduction/views.py
+    line: 859
+    category: hardcoded_credential
+    expected_scanner: auth_pattern_analyzer
+    vulnerability_class: 'Hardcoded Credentials (CWE-798)'
+    notes: Same scanner, second of four consecutive credential literals.
+
+  - file: introduction/views.py
+    line: 861
+    category: hardcoded_credential
+    expected_scanner: auth_pattern_analyzer
+    vulnerability_class: 'Hardcoded Credentials (CWE-798)'
+    notes: Third of four.
+
+  - file: introduction/views.py
+    line: 863
+    category: hardcoded_credential
+    expected_scanner: auth_pattern_analyzer
+    vulnerability_class: 'Hardcoded Credentials (CWE-798)'
+    notes: Fourth of four.
+
+  - file: introduction/views.py
+    line: 529
+    category: hardcoded_credential
+    expected_scanner: SecretsScanner
+    vulnerability_class: 'Hardcoded secret keyword in source (CWE-798)'
+    notes: |
+      Promoted from aspirational 2026-05-17 — detected reliably by
+      SecretsScanner across both local (macOS Python 3.9) and CI
+      (Ubuntu Python 3.12) environments. The SecretsScanner thread-
+      pool race fix likely contributed to this becoming deterministic.
+
+  - file: introduction/views.py
+    line: 423
+    category: command_injection
+    expected_scanner: bandit
+    vulnerability_class: 'OS Command Injection via subprocess shell=True (CWE-78, Bandit B602)'
+    notes: |
+      Promoted from aspirational 2026-05-18 after fixing task #64
+      (PYTHONUSERBASE env preservation in the test harness). bandit
+      attribution now works on both macOS Py 3.9 local and Ubuntu
+      Py 3.12 CI. Adds command_injection as a NEW vulnerability
+      category to Track A's demonstrated coverage.
+
+  - file: introduction/views.py
+    line: 1017
+    category: weak_crypto
+    expected_scanner: bandit
+    vulnerability_class: 'Weak Hash: MD5 (CWE-327, Bandit B324)'
+    notes: |
+      Promoted from aspirational 2026-05-18 alongside L423 (same
+      task #64 fix). Adds a 2nd instance to the existing
+      weak_crypto category.
+
+# Documented PyGoat vulnerabilities — or environment-dependent
+# detections — that brass does NOT reliably produce under the test
+# harness. Listed as aspirational so a future detector improvement
+# (or harness improvement that gives bandit/pysa/semgrep full
+# coverage) can promote these to required_findings + close the gap
+# loudly. Test does NOT fail on these today.
+aspirational_findings:
+  - file: introduction/views.py
+    line: 421
+    category: command_injection
+    upstream_documents_as: 'OS Command Injection via subprocess shell taint'
+    why_not_detected: |
+      SemgrepTaintScanner catches this in a direct-shell brasscoders
+      scan but produces 0 findings under the test harness. Likely
+      a semgrep config / network / env discovery difference in
+      the isolated subprocess. Investigate when stabilizing the
+      harness for broader scanner coverage.
+
+  - file: introduction/views.py
+    line: 155
+    category: sql_injection
+    upstream_documents_as: 'A01: SQL Injection via string concatenation'
+    why_not_detected: |
+      Pysa's bundled stdlib.pysa models sqlite3.Cursor.execute as
+      a SQL sink, but PyGoat uses Django's ORM cursor which isn't
+      in brass's third_party.pysa Django models (only QuerySet.raw
+      and CursorWrapper.execute are modeled). Additionally, Pysa
+      errored under the harness ('Pyre produced non-parseable
+      output even after wipe + retry') — likely cache concurrency
+      between the harness's ProcessPoolExecutor workers.
+
+  - file: introduction/views.py
+    line: 211
+    category: deserialization
+    upstream_documents_as: 'A08: Insecure Deserialization via pickle.loads'
+    why_not_detected: |
+      Bandit B301 should fire on pickle.loads but didn't appear
+      under the harness. Same root cause as the bandit gaps at
+      L423/L1017 (config-discovery in isolated subprocess).
+
+  - file: introduction/views.py
+    line: 451
+    category: code_injection
+    upstream_documents_as: 'A03: Insecure Design via eval()'
+    why_not_detected: |
+      Bandit B307 should fire on eval() but didn't appear under
+      the harness. Same root cause as the other bandit gaps.

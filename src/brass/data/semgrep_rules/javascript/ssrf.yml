@@ -1,0 +1,82 @@
+rules:
+  - id: brass.javascript.taint.ssrf
+    mode: taint
+    severity: ERROR
+    languages: [javascript, typescript]
+    message: >-
+      Tainted HTTP request data reaches an outbound fetch/HTTP call.
+      Validate the URL host/scheme/port against an allowlist before
+      issuing the request, or reject schemes other than https.
+    metadata:
+      category: security
+      cwe: "CWE-918"
+      brass_kind: ssrf
+    pattern-sources:
+      - pattern: req.query
+      - pattern: req.query.$X
+      - pattern: req.body
+      - pattern: req.body.$X
+      - pattern: req.params
+      - pattern: req.params.$X
+      - pattern: req.cookies
+      - pattern: req.cookies.$X
+      - pattern: req.headers
+      - pattern: req.headers.$X
+      - patterns:
+          - pattern-inside: |
+              export async function $METHOD($REQ: $$$) {
+                ...
+              }
+          - focus-metavariable: $REQ
+      - patterns:
+          - pattern-inside: |
+              export async function $METHOD($REQ) {
+                ...
+              }
+          - focus-metavariable: $REQ
+    pattern-sinks:
+      # focus-metavariable so the sink is the URL itself, not the entire
+      # call. Without this, fetch(CONSTANT_URL, {body: taintedInput}) would
+      # flag — but only the body carries taint, which isn't SSRF.
+      - patterns:
+          - pattern: fetch($URL, ...)
+          - focus-metavariable: $URL
+      - patterns:
+          - pattern: fetch($URL)
+          - focus-metavariable: $URL
+      - patterns:
+          - pattern: axios.get($URL, ...)
+          - focus-metavariable: $URL
+      - patterns:
+          - pattern: axios.post($URL, ...)
+          - focus-metavariable: $URL
+      - patterns:
+          - pattern: axios.put($URL, ...)
+          - focus-metavariable: $URL
+      - patterns:
+          - pattern: axios.delete($URL, ...)
+          - focus-metavariable: $URL
+      - patterns:
+          - pattern: axios($URL, ...)
+          - focus-metavariable: $URL
+      - patterns:
+          - pattern: http.get($URL, ...)
+          - focus-metavariable: $URL
+      - patterns:
+          - pattern: https.get($URL, ...)
+          - focus-metavariable: $URL
+      - patterns:
+          - pattern: http.request($URL, ...)
+          - focus-metavariable: $URL
+      - patterns:
+          - pattern: https.request($URL, ...)
+          - focus-metavariable: $URL
+      - patterns:
+          - pattern: got($URL, ...)
+          - focus-metavariable: $URL
+      - patterns:
+          - pattern: superagent.get($URL)
+          - focus-metavariable: $URL
+      - patterns:
+          - pattern: needle.get($URL, ...)
+          - focus-metavariable: $URL

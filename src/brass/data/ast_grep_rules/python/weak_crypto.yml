@@ -1,0 +1,31 @@
+id: brass.python.weak-crypto-md5-sha1
+language: python
+rule:
+  any:
+    - pattern: hashlib.md5($X)
+    - pattern: hashlib.sha1($X)
+    - pattern: hashlib.md5()
+    - pattern: hashlib.sha1()
+    - pattern: hashlib.new("md5", $X)
+    - pattern: hashlib.new("sha1", $X)
+    - pattern: hashlib.new('md5', $X)
+    - pattern: hashlib.new('sha1', $X)
+  # Exclude calls that explicitly opt out via usedforsecurity=False — the
+  # documented Python 3.9+ way to say "this is a non-crypto hash, leave me
+  # alone." Without this, callers who already did the right thing still
+  # show up in the finding bucket.
+  not:
+    any:
+      - pattern: hashlib.md5($X, usedforsecurity=False)
+      - pattern: hashlib.sha1($X, usedforsecurity=False)
+      - pattern: hashlib.md5(usedforsecurity=False)
+      - pattern: hashlib.sha1(usedforsecurity=False)
+severity: warning
+message: >-
+  Weak hash algorithm (MD5/SHA-1). For security-sensitive hashing use
+  SHA-256+ or, for passwords, a KDF like argon2/bcrypt/scrypt. If this
+  call is for non-security purposes (content addressing, file digests),
+  pass usedforsecurity=False to silence the warning.
+metadata:
+  brass_kind: weak_crypto
+  cwe: CWE-327

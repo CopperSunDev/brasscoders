@@ -1,0 +1,87 @@
+rules:
+  - id: brass.python.taint.deserialization
+    mode: taint
+    severity: ERROR
+    languages: [python]
+    message: >-
+      Tainted HTTP request data reaches an unsafe deserialization sink.
+      pickle, marshal, and yaml.load (without SafeLoader) execute arbitrary
+      code on untrusted input. Use json.loads, yaml.safe_load, or a
+      schema-validated serializer.
+    metadata:
+      category: security
+      cwe: "CWE-502"
+      brass_kind: deserialization
+    pattern-sources:
+      - pattern: request.args
+      - pattern: request.args.get(...)
+      - pattern: request.form
+      - pattern: request.form.get(...)
+      - pattern: request.json
+      - pattern: request.get_json(...)
+      - pattern: request.values
+      - pattern: request.values.get(...)
+      - pattern: request.data
+      - pattern: request.GET
+      - pattern: request.POST
+      - pattern: request.body
+      - patterns:
+          - pattern-inside: |
+              @$APP.route(...)
+              def $FUNC(..., $PARAM, ...):
+                ...
+          - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-inside: |
+              @$APP.route(...)
+              def $FUNC($PARAM, ...):
+                ...
+          - focus-metavariable: $PARAM
+      # Django views — only when the request parameter has the HttpRequest
+      # type annotation. Without the annotation `request` is too broad.
+      - patterns:
+          - pattern-inside: |
+              def $FUNC($REQ: HttpRequest, ...):
+                ...
+          - focus-metavariable: $REQ
+      - patterns:
+          - pattern-inside: |
+              def $FUNC($REQ: HttpRequest):
+                ...
+          - focus-metavariable: $REQ
+      # FastAPI / Starlette dependency-injection parameters
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Path(...), ...):
+                ...
+          - focus-metavariable: $V
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Query(...), ...):
+                ...
+          - focus-metavariable: $V
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Body(...), ...):
+                ...
+          - focus-metavariable: $V
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Form(...), ...):
+                ...
+          - focus-metavariable: $V
+    pattern-sinks:
+      - pattern: pickle.loads(...)
+      - pattern: pickle.load(...)
+      - pattern: cPickle.loads(...)
+      - pattern: cPickle.load(...)
+      - pattern: marshal.loads(...)
+      - pattern: marshal.load(...)
+      # yaml.load WITHOUT SafeLoader = arbitrary code execution.
+      # Calls that explicitly pass Loader=SafeLoader are safe and excluded.
+      - patterns:
+          - pattern: yaml.load(...)
+          - pattern-not: yaml.load(..., Loader=yaml.SafeLoader, ...)
+          - pattern-not: yaml.load(..., Loader=SafeLoader, ...)
+      - pattern: yaml.unsafe_load(...)
+      - pattern: shelve.open(...)

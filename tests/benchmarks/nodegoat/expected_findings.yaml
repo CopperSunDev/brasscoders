@@ -1,0 +1,144 @@
+# Expected findings for OWASP NodeGoat at commit
+# c5cb68a7084e4ae7dcc60e6a98768720a81841e8.
+#
+# Source: brass scan output 2026-05-17 under the test harness
+# (HOME-isolated subprocess, BRASS_AUTOFETCH_TYPESHED=1, node + ast-grep
+# on PATH). Each entry below is a finding brass CURRENTLY detects on
+# this pinned commit; the e2e test asserts every required: true entry
+# is present in the scan output. A future brass commit that drops one
+# of these signals fails the benchmark loudly.
+#
+# Aspirational entries track documented NodeGoat vulnerabilities that
+# brass DOESN'T currently detect (NoSQL $where injection, SSRF via
+# needle.get, XSS via res.write of untrusted body). These don't fail
+# the test today but mark the gap so a future detector improvement
+# is easy to celebrate.
+
+project: nodegoat
+upstream: https://github.com/OWASP/NodeGoat
+pinned_sha: c5cb68a7084e4ae7dcc60e6a98768720a81841e8
+upstream_reference: master HEAD 2026-05-17
+baseline_scan_date: '2026-05-17'
+
+# IMPORTANT: this manifest tracks what brass produces UNDER THE TEST
+# HARNESS (HOME-isolated subprocess, BRASS_AUTOFETCH_TYPESHED=1, no
+# .brassignore, node + ast-grep propagated through PATH). The harness
+# output is the canonical baseline because it's reproducible across
+# machines; the direct-shell output isn't.
+
+# Findings the e2e test REQUIRES brass to produce on this commit.
+# Dropping any of these in a future scan is a regression signal.
+required_findings:
+  - file: app/routes/contributions.js
+    line: 32
+    category: code_injection
+    expected_scanner: JavaScriptTypeScriptScanner
+    vulnerability_class: 'Server-Side JS Injection via eval() (CWE-95)'
+    notes: |
+      NodeGoat's headline A1 example — eval() of req.body.preTax.
+      Documented in the bundled tutorial at app/views/tutorial/a1.html.
+      First of three consecutive eval() calls in handleContributionsUpdate.
+
+  - file: app/routes/contributions.js
+    line: 33
+    category: code_injection
+    expected_scanner: JavaScriptTypeScriptScanner
+    vulnerability_class: 'Server-Side JS Injection via eval() (CWE-95)'
+    notes: Second of three consecutive eval() calls (req.body.afterTax).
+
+  - file: app/routes/contributions.js
+    line: 34
+    category: code_injection
+    expected_scanner: JavaScriptTypeScriptScanner
+    vulnerability_class: 'Server-Side JS Injection via eval() (CWE-95)'
+    notes: Third of three consecutive eval() calls (req.body.roth).
+
+  - file: artifacts/db-reset.js
+    line: 18
+    category: hardcoded_credential
+    expected_scanner: JavaScriptTypeScriptScanner
+    vulnerability_class: 'Hardcoded Credentials (CWE-798)'
+    notes: |
+      Seed-data password literal. JS/TS scanner catches the
+      hardcoded_password pattern; SecretsScanner separately
+      flags the same line as Possible Secret Keyword (tracked
+      as a separate finding).
+
+  - file: artifacts/db-reset.js
+    line: 27
+    category: hardcoded_credential
+    expected_scanner: JavaScriptTypeScriptScanner
+    vulnerability_class: 'Hardcoded Credentials (CWE-798)'
+    notes: Second of three seed-data password literals.
+
+  - file: artifacts/db-reset.js
+    line: 35
+    category: hardcoded_credential
+    expected_scanner: JavaScriptTypeScriptScanner
+    vulnerability_class: 'Hardcoded Credentials (CWE-798)'
+    notes: Third of three seed-data password literals.
+
+  - file: app/routes/session.js
+    line: 61
+    category: hardcoded_credential
+    expected_scanner: SecretsScanner
+    vulnerability_class: 'Hardcoded Credentials (CWE-798)'
+    notes: |
+      Session-route credential literal. Previously demoted to
+      aspirational due to a SecretsScanner thread-pool race that
+      randomly dropped findings; fix landed (default_settings()
+      hoisted out of worker threads), now reliably detected
+      across 5+ cold scans.
+
+  - file: app/routes/session.js
+    line: 172
+    category: hardcoded_credential
+    expected_scanner: SecretsScanner
+    vulnerability_class: 'Hardcoded Credentials (CWE-798)'
+    notes: Second session-route credential literal, same scanner-race fix applied.
+
+# Documented NodeGoat vulnerabilities — or environment-dependent
+# detections — that brass does NOT reliably produce under the test
+# harness. Listed as aspirational so a future detector improvement
+# can promote these to required_findings + close the gap loudly.
+# Test does NOT fail on these today.
+aspirational_findings:
+  - file: app/data/allocations-dao.js
+    line: 73
+    category: nosql_injection
+    upstream_documents_as: 'A1: NoSQL Injection via $where with template literal'
+    why_not_detected: |
+      NodeGoat's tutorial (a1.html) documents this $where + string
+      concat as the canonical NoSQL injection. BrassCoders has no
+      MongoDB $where taint sink modeled in any JS scanner today.
+      A future Semgrep rule or JS/TS scanner pattern that flags
+      $where with template-literal interpolation would catch this.
+
+  - file: app/data/allocations-dao.js
+    line: 78
+    category: nosql_injection
+    upstream_documents_as: 'A1: NoSQL Injection via $where with string concat'
+    why_not_detected: |
+      Second variant of the $where injection (the disabled "fix"
+      attempt still has the same pattern). Same root cause as L73.
+
+  - file: app/routes/research.js
+    line: 15
+    category: ssrf
+    upstream_documents_as: 'A8/A9: SSRF via needle.get(req.query.url)'
+    why_not_detected: |
+      Documented in tutorial ssrf.html. User-supplied req.query.url
+      flows directly to needle.get() — a textbook SSRF. BrassCoders's
+      Semgrep JS ruleset doesn't include needle as an HTTP-client
+      sink, and the JS/TS scanner's pattern set focuses on
+      eval/credentials/todos, not taint flow.
+
+  - file: app/routes/research.js
+    line: 25
+    category: xss
+    upstream_documents_as: 'A7: Reflected XSS via res.write of remote body'
+    why_not_detected: |
+      Untrusted HTTP body written directly into the response stream
+      after the SSRF on L15-16. A taint-aware JS scanner would
+      flag the data flow; brass's current JS/TS scanner pattern
+      set doesn't model res.write as a sink.

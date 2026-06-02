@@ -1,0 +1,26 @@
+id: brass.python.sql-injection-execute-tainted-string
+language: python
+rule:
+  any:
+    # cursor/conn.execute with f-string or concat (canonical SQLI shape)
+    - pattern: $CURSOR.execute(f"$$$")
+    - pattern: $CURSOR.execute($A + $B)
+    # SQLAlchemy raw SQL via text()
+    - pattern: sqlalchemy.text(f"$$$")
+    - pattern: text(f"$$$")
+    - pattern: $SESSION.execute(text(f"$$$"))
+    - pattern: $SESSION.execute(text(f"$$$"), $$$)
+    # Django ORM raw queries
+    - pattern: $MODEL.objects.raw(f"$$$")
+    - pattern: $MODEL.objects.raw($A + $B)
+    # Django connection.cursor() raw queries (same execute shape, but
+    # commonly built via .extra() interpolation)
+    - pattern: $QS.extra(where=[f"$$$"])
+severity: error
+message: >-
+  SQL execution call with an f-string or string-concatenation argument.
+  Use parameterized queries (positional or named placeholders) instead of
+  building SQL with string interpolation.
+metadata:
+  brass_kind: sql_injection
+  cwe: CWE-89

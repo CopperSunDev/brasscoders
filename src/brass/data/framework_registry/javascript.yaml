@@ -1,0 +1,205 @@
+# JavaScript framework registry — entry points, sources, sinks.
+# Schema documented in python.yaml. Used for .js / .mjs / .cjs files.
+
+entry_points:
+  # Express
+  - kind: web_route
+    framework: express
+    module: express
+    pattern: "app.get("
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: express
+    module: express
+    pattern: "app.post("
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: express
+    module: express
+    pattern: "app.put("
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: express
+    module: express
+    pattern: "app.delete("
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: express
+    module: express
+    pattern: "router."
+    severity_multiplier: 2.0
+
+  # Koa / Hapi / Fastify
+  - kind: web_route
+    framework: koa
+    module: koa
+    pattern: "router."
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: fastify
+    module: fastify
+    pattern: "fastify."
+    severity_multiplier: 2.0
+  - kind: web_route
+    framework: hapi
+    module: "@hapi/hapi"
+    pattern: "server.route"
+    severity_multiplier: 2.0
+
+  # Lambda / Cloudflare Workers / Vercel
+  - kind: lambda_handler
+    framework: aws_lambda
+    module: ""
+    pattern: "exports.handler"
+    severity_multiplier: 2.0
+  - kind: worker_handler
+    framework: cloudflare_workers
+    module: ""
+    pattern: "addEventListener('fetch'"
+    severity_multiplier: 2.0
+
+  # CLI / build scripts — lower stakes
+  - kind: cli_command
+    framework: commander
+    module: commander
+    pattern: ".command("
+    severity_multiplier: 0.5
+  - kind: cli_command
+    framework: yargs
+    module: yargs
+    pattern: "yargs("
+    severity_multiplier: 0.5
+  - kind: build_script
+    framework: stdlib
+    module: ""
+    pattern: "#!/usr/bin/env node"
+    severity_multiplier: 0.5
+
+sources:
+  - kind: http_request
+    framework: express
+    module: express
+    pattern: "req.body"
+  - kind: http_request
+    framework: express
+    module: express
+    pattern: "req.query"
+  - kind: http_request
+    framework: express
+    module: express
+    pattern: "req.params"
+  - kind: http_request
+    framework: express
+    module: express
+    pattern: "req.cookies"
+  - kind: http_request
+    framework: express
+    module: express
+    pattern: "req.headers"
+
+  # Node stdlib
+  - kind: env_input
+    framework: stdlib
+    module: ""
+    pattern: "process.env"
+  - kind: argv_input
+    framework: stdlib
+    module: ""
+    pattern: "process.argv"
+  - kind: stdin_input
+    framework: stdlib
+    module: ""
+    pattern: "process.stdin"
+
+sinks:
+  # SQL
+  - kind: sql_execution
+    severity_bump: 1
+    framework: mysql
+    module: mysql
+    pattern: ".query("
+  - kind: sql_execution
+    severity_bump: 1
+    framework: pg
+    module: pg
+    pattern: ".query("
+  - kind: sql_execution
+    severity_bump: 1
+    framework: sqlite3
+    module: sqlite3
+    pattern: ".exec("
+  - kind: sql_execution
+    severity_bump: 1
+    framework: knex
+    module: knex
+    pattern: ".raw("
+
+  # Shell execution
+  - kind: shell_execution
+    severity_bump: 1
+    framework: child_process
+    module: child_process
+    pattern: "exec("
+  - kind: shell_execution
+    severity_bump: 1
+    framework: child_process
+    module: child_process
+    pattern: "execSync("
+  - kind: shell_execution
+    severity_bump: 1
+    framework: child_process
+    module: child_process
+    pattern: "spawn("
+
+  # Code execution
+  - kind: code_execution
+    severity_bump: 2
+    framework: stdlib
+    module: ""
+    pattern: "eval("
+  - kind: code_execution
+    severity_bump: 2
+    framework: vm
+    module: vm
+    pattern: "vm.runInNewContext"
+
+  # SSRF
+  - kind: ssrf
+    severity_bump: 1
+    framework: stdlib
+    module: ""
+    pattern: "fetch("
+  - kind: ssrf
+    severity_bump: 1
+    framework: axios
+    module: axios
+    pattern: "axios."
+  - kind: ssrf
+    severity_bump: 1
+    framework: http
+    module: http
+    pattern: "http.request("
+
+  # XSS sinks (React)
+  - kind: xss_sink
+    severity_bump: 1
+    framework: react
+    module: react
+    pattern: "dangerouslySetInnerHTML"
+  - kind: xss_sink
+    severity_bump: 1
+    framework: stdlib
+    module: ""
+    pattern: ".innerHTML"
+  - kind: xss_sink
+    severity_bump: 1
+    framework: stdlib
+    module: ""
+    pattern: "document.write("
+
+  # Deserialization
+  - kind: deserialization
+    severity_bump: 1
+    framework: stdlib
+    module: ""
+    pattern: "JSON.parse("

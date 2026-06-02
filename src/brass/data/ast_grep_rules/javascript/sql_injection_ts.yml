@@ -1,0 +1,20 @@
+id: brass.typescript.sql-injection-template-literal
+language: typescript
+rule:
+  any:
+    - pattern: $CLIENT.query(`$$$${$X}$$$`)
+    - pattern: $CLIENT.query(`$$$${$X}$$$`, $$$)
+    - pattern: $CONN.execute(`$$$${$X}$$$`)
+    - pattern: $CONN.execute(`$$$${$X}$$$`, $$$)
+    - pattern: $DB.exec(`$$$${$X}$$$`)
+    - pattern: $DB.run(`$$$${$X}$$$`)
+    - pattern: $K.raw(`$$$${$X}$$$`)
+    - pattern: $PRISMA.$queryRawUnsafe(`$$$${$X}$$$`)
+    - pattern: $PRISMA.$executeRawUnsafe(`$$$${$X}$$$`)
+severity: warning
+message: >-
+  SQL query built via TypeScript template-literal interpolation. Use
+  parameterized queries instead of building SQL with ${}.
+metadata:
+  brass_kind: sql_injection
+  cwe: CWE-89

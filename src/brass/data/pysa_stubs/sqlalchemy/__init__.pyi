@@ -1,0 +1,3 @@
+from typing import Any
+
+def text(text: str) -> Any: ...

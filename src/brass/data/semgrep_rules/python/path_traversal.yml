@@ -1,0 +1,120 @@
+rules:
+  - id: brass.python.taint.path-traversal
+    mode: taint
+    severity: ERROR
+    languages: [python]
+    message: >-
+      Tainted HTTP request data reaches a filesystem read/write. Resolve the
+      candidate path and verify it stays inside an expected directory
+      (e.g. `Path(base).resolve() in Path(candidate).resolve().parents`).
+    metadata:
+      category: security
+      cwe: "CWE-22"
+      brass_kind: path_traversal
+    pattern-sources:
+      - pattern: request.args
+      - pattern: request.args.get(...)
+      - pattern: request.form
+      - pattern: request.form.get(...)
+      - pattern: request.json
+      - pattern: request.get_json(...)
+      - pattern: request.values
+      - pattern: request.values.get(...)
+      - pattern: request.data
+      - pattern: request.GET
+      - pattern: request.POST
+      - pattern: request.body
+      - patterns:
+          - pattern-inside: |
+              @$APP.route(...)
+              def $FUNC(..., $PARAM, ...):
+                ...
+          - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-inside: |
+              @$APP.route(...)
+              def $FUNC($PARAM, ...):
+                ...
+          - focus-metavariable: $PARAM
+      # Django views — only when the request parameter has the HttpRequest
+      # type annotation. Without the annotation `request` is too broad.
+      - patterns:
+          - pattern-inside: |
+              def $FUNC($REQ: HttpRequest, ...):
+                ...
+          - focus-metavariable: $REQ
+      - patterns:
+          - pattern-inside: |
+              def $FUNC($REQ: HttpRequest):
+                ...
+          - focus-metavariable: $REQ
+      # FastAPI / Starlette dependency-injection parameters
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Path(...), ...):
+                ...
+          - focus-metavariable: $V
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Query(...), ...):
+                ...
+          - focus-metavariable: $V
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Body(...), ...):
+                ...
+          - focus-metavariable: $V
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $V = Form(...), ...):
+                ...
+          - focus-metavariable: $V
+    pattern-sinks:
+      # focus-metavariable so the sink is the PATH itself, not the whole
+      # call. Without this, `open(SAFE_PATH, mode=user_input)` would
+      # taint — but the path is fine, only the mode is tainted.
+      - patterns:
+          - pattern: open($PATH, ...)
+          - focus-metavariable: $PATH
+      - patterns:
+          - pattern: pathlib.Path($PATH).read_text(...)
+          - focus-metavariable: $PATH
+      - patterns:
+          - pattern: pathlib.Path($PATH).read_bytes(...)
+          - focus-metavariable: $PATH
+      - patterns:
+          - pattern: pathlib.Path($PATH).write_text(...)
+          - focus-metavariable: $PATH
+      - patterns:
+          - pattern: pathlib.Path($PATH).write_bytes(...)
+          - focus-metavariable: $PATH
+      - patterns:
+          - pattern: Path($PATH).read_text(...)
+          - focus-metavariable: $PATH
+      - patterns:
+          - pattern: Path($PATH).read_bytes(...)
+          - focus-metavariable: $PATH
+      - patterns:
+          - pattern: Path($PATH).write_text(...)
+          - focus-metavariable: $PATH
+      - patterns:
+          - pattern: Path($PATH).write_bytes(...)
+          - focus-metavariable: $PATH
+      - patterns:
+          - pattern: send_file($PATH, ...)
+          - focus-metavariable: $PATH
+      - patterns:
+          - pattern: send_from_directory($DIR, $PATH, ...)
+          - focus-metavariable: $PATH
+      - patterns:
+          - pattern: shutil.copy($SRC, ...)
+          - focus-metavariable: $SRC
+      - patterns:
+          - pattern: shutil.move($SRC, ...)
+          - focus-metavariable: $SRC
+      - patterns:
+          - pattern: os.remove($PATH)
+          - focus-metavariable: $PATH
+      - patterns:
+          - pattern: os.unlink($PATH)
+          - focus-metavariable: $PATH

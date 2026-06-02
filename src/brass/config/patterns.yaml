@@ -1,0 +1,243 @@
+# Content Safety Pattern Configuration
+# External configuration for all regex patterns used in content safety detection
+
+international_pii:
+  # United States
+  ssn:
+    pattern: '\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b'
+    description: 'Social Security Number'
+    risk: 'Personal identifier with high identity theft risk'
+    fix: 'Move to secure environment variables or replace with test data'
+    severity: 'high'
+    region: 'US'
+    compliance: 'Privacy Act'
+  
+  # India
+  aadhaar:
+    pattern: '\b\d{4}[- ]?\d{4}[- ]?\d{4}\b'
+    description: 'India Aadhaar Number'
+    risk: 'Highly sensitive Indian national identifier'
+    fix: 'Replace with clearly fake test data or secure storage'
+    severity: 'high'
+    region: 'IN'
+    compliance: 'PDPB'
+  
+  india_pan:
+    pattern: '\b[A-Z]{5}\d{4}[A-Z]\b'
+    description: 'India PAN Number'
+    risk: 'Indian tax identification number'
+    fix: 'Use environment variables or test PAN format'
+    severity: 'high'
+    region: 'IN'
+    compliance: 'PDPB'
+  
+  # United Kingdom
+  uk_nhs:
+    pattern: '\b\d{3}[- ]?\d{3}[- ]?\d{4}\b'
+    description: 'UK NHS Number'
+    risk: 'UK healthcare identifier (GDPR sensitive)'
+    fix: 'Remove or replace with fake NHS numbers for testing'
+    severity: 'high'
+    region: 'UK'
+    compliance: 'GDPR'
+  
+  uk_nino:
+    pattern: '\b[ABCEGHJ-PRSTW-Z][ABCEGHJ-NPRSTW-Z]\d{6}[A-D]\b'
+    description: 'UK National Insurance Number'
+    risk: 'UK personal identifier (GDPR compliance required)'
+    fix: 'Use test NINO format or environment variables'
+    severity: 'high'
+    region: 'UK'
+    compliance: 'GDPR'
+  
+  # Singapore
+  sg_nric:
+    pattern: '\b[STFG]\d{7}[A-Z]\b'
+    description: 'Singapore NRIC/FIN'
+    risk: 'Singapore national identifier (PDPA compliance required)'
+    fix: 'Use test NRIC format or environment variables'
+    severity: 'high'
+    region: 'SG'
+    compliance: 'PDPA'
+  
+  # Australia
+  au_tfn:
+    pattern: '\b\d{3}[- ]?\d{3}[- ]?\d{3}\b'
+    description: 'Australian Tax File Number'
+    risk: 'Australian personal tax identifier'
+    fix: 'Use environment variables or test TFN ranges'
+    severity: 'high'
+    region: 'AU'
+    compliance: 'Privacy Act'
+  
+  au_medicare:
+    pattern: '\b\d{4}[- ]?\d{5}[- ]?\d\b'
+    description: 'Australian Medicare Number'
+    risk: 'Australian healthcare identifier'
+    fix: 'Use environment variables or test Medicare format'
+    severity: 'high'
+    region: 'AU'
+    compliance: 'Privacy Act'
+  
+  # European Union
+  iban:
+    pattern: '\b[A-Z]{2}\d{2}[A-Z0-9]{4}\d{7}([A-Z0-9]?){0,16}\b'
+    description: 'International Bank Account Number (IBAN)'
+    risk: 'International banking information'
+    fix: 'Use environment variables for financial account data'
+    severity: 'high'
+    region: 'EU'
+    compliance: 'GDPR'
+  
+  eu_vat:
+    pattern: '\b[A-Z]{2}\d{8,12}\b'
+    description: 'EU VAT Number'
+    risk: 'European tax identification'
+    fix: 'Use environment variables or test VAT format'
+    severity: 'medium'
+    region: 'EU'
+    compliance: 'GDPR'
+
+common_pii:
+  email:
+    pattern: '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+    description: 'Email address'
+    risk: 'Personal contact information exposure'
+    fix: 'Move to configuration files or environment variables'
+    severity: 'medium'
+  
+  phone:
+    pattern: '\(?\d{3}\)?[- ]?\d{3}[- ]?\d{4}'
+    description: 'Phone number'
+    risk: 'Personal contact information'
+    fix: 'Replace with clearly fake numbers (555-0123) or move to config'
+    severity: 'medium'
+  
+  credit_card:
+    pattern: '\b(?:\d{4}[- ]?){3}\d{4}\b'
+    description: 'Credit card number'
+    risk: 'Financial data exposure risk'
+    fix: 'Replace with test card numbers or environment variables'
+    severity: 'high'
+
+secret_patterns:
+  api_key_assignment:
+    pattern: '(?:api[_-]?key|token|secret)["'']?\s*[:=]\s*["'']?([A-Za-z0-9_-]{20,})["'']?'
+    description: 'Hardcoded API key or token'
+    risk: 'Exposed API credentials can lead to unauthorized access'
+    fix: 'Use environment variables: os.getenv("API_KEY")'
+    severity: 'high'
+  
+  aws_access_key:
+    pattern: 'AKIA[0-9A-Z]{16}'
+    description: 'AWS Access Key'
+    risk: 'AWS account compromise risk'
+    fix: 'Move to AWS IAM roles or environment variables'
+    severity: 'high'
+  
+  aws_secret_key:
+    pattern: '[A-Za-z0-9/+=]{40}'
+    description: 'AWS Secret Key'
+    risk: 'AWS account compromise risk'
+    fix: 'Move to AWS IAM roles or environment variables'
+    severity: 'high'
+  
+  github_token:
+    pattern: 'ghp_[A-Za-z0-9]{36}'
+    description: 'GitHub Personal Access Token'
+    risk: 'Repository access compromise'
+    fix: 'Regenerate token and use GitHub Secrets'
+    severity: 'high'
+  
+  github_app_token:
+    pattern: 'ghs_[A-Za-z0-9]{36}'
+    description: 'GitHub App Token'
+    risk: 'GitHub app access compromise'
+    fix: 'Regenerate token and secure properly'
+    severity: 'high'
+  
+  slack_token:
+    pattern: 'xox[baprs]-[A-Za-z0-9-]+'
+    description: 'Slack API Token'
+    risk: 'Slack workspace access compromise'
+    fix: 'Use Slack app credentials securely'
+    severity: 'high'
+  
+  discord_token:
+    pattern: '[MN][A-Za-z\d]{23}\.[\w-]{6}\.[\w-]{27}'
+    description: 'Discord Bot Token'
+    risk: 'Discord bot compromise'
+    fix: 'Regenerate token and use environment variables'
+    severity: 'high'
+  
+  password_assignment:
+    pattern: 'password\s*[=:]\s*["''][^"'']{6,}["'']'
+    description: 'Hardcoded password'
+    risk: 'Password exposure in code repository'
+    fix: 'Use environment variables or secure credential management'
+    severity: 'high'
+  
+  private_key:
+    pattern: '-----BEGIN [A-Z ]*PRIVATE KEY-----'
+    description: 'Private key'
+    risk: 'Cryptographic private key exposure'
+    fix: 'Move to secure key management system'
+    severity: 'high'
+
+profanity_patterns:
+  hate_speech_indicators:
+    pattern: '\b(?:nazi|kike|spic|chink|nigger|faggot)\b'
+    description: 'Hate speech content'
+    risk: 'Hate speech content violates professional standards and may create legal issues'
+    fix: 'Remove immediately - not appropriate in any professional context'
+    severity: 'high'
+  
+  explicit_profanity:
+    pattern: '\b(?:fuck(?:ing|ed|er|s)?|shit(?:ty|s)?|bitch(?:es|y)?|ass(?:hole|es)?|bastard|damn(?:ed)?|hell)\b'
+    description: 'Explicit profanity'
+    risk: 'Unprofessional language may impact team collaboration and client relationships'
+    fix: 'Remove or replace with professional language'
+    severity: 'medium'
+  
+  casual_abbreviations:
+    pattern: '\b(?:wtf|omg|lol|rofl|lmao)\b'
+    description: 'Casual internet abbreviations'
+    risk: 'Informal language may appear unprofessional in business contexts'
+    fix: 'Replace with professional language'
+    severity: 'low'
+  
+  unprofessional_descriptors:
+    pattern: '\b(?:stupid|dumb|idiotic|moronic|retarded)\b'
+    description: 'Unprofessional descriptive language'
+    risk: 'Derogatory language may create hostile work environment'
+    fix: 'Use constructive language like "unclear" or "needs improvement"'
+    severity: 'low'
+
+obfuscation_patterns:
+  base64_encoded:
+    pattern: '(?:[A-Za-z0-9+/]{4}){4,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?'
+    description: 'Base64 Encoded Content'
+    risk: 'Base64 encoding may hide sensitive data or malicious content'
+    fix: 'Review encoded content and ensure it doesn''t contain sensitive information'
+    severity: 'medium'
+  
+  hex_encoded:
+    pattern: '\b[0-9A-Fa-f]{32,}\b'
+    description: 'Hex encoded content'
+    risk: 'Hexadecimal encoding may hide sensitive data'
+    fix: 'Review hex-encoded content for legitimacy'
+    severity: 'low'
+  
+  url_encoded:
+    pattern: '(?:%[0-9A-Fa-f]{2}){3,}'
+    description: 'URL encoded content'
+    risk: 'URL encoding may hide malicious URLs or content'
+    fix: 'Decode and review URL-encoded content'
+    severity: 'low'
+
+# Pattern validation rules
+validation:
+  max_pattern_length: 1000
+  required_fields: ['pattern', 'description', 'risk', 'fix', 'severity']
+  valid_severities: ['low', 'medium', 'high', 'critical']
+  valid_regions: ['US', 'UK', 'EU', 'IN', 'SG', 'AU', 'CA', 'global']

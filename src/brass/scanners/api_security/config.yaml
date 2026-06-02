@@ -1,0 +1,52 @@
+# API Security Scanner Configuration
+api_security:
+  enabled: true
+  
+  # Package validation settings
+  package_validation:
+    enabled: true
+    check_local_first: true          # Fast importlib.util.find_spec() check
+    registry_validation: true        # Authoritative registry validation
+    registry_timeout_seconds: 2      # Fast timeout for registry calls
+    connection_pooling: true         # Reuse HTTP connections
+    
+  # Authentication pattern detection
+  authentication:
+    check_hardcoded_secrets: true
+    check_weak_jwt: true
+    check_missing_rate_limiting: true
+    
+  # Input validation analysis
+  input_validation:
+    check_sql_injection: true
+    check_xss_risks: true  
+    check_command_injection: true
+    
+  # Performance settings
+  performance:
+    max_concurrent_file_analysis: 10
+    max_concurrent_registry_checks: 5  # Limit concurrent network calls
+    enable_async_analysis: false       # Can be enabled for future optimization
+    
+  # Package registries
+  registries:
+    python: "https://pypi.org/pypi/{}/json"
+    javascript: "https://registry.npmjs.org/{}"
+    go: "https://pkg.go.dev/{}"
+    
+  # File type settings
+  file_types:
+    analyze_python: true
+    analyze_javascript: true
+    analyze_typescript: true
+    analyze_config_files: true
+    
+  # Severity thresholds
+  severity_thresholds:
+    package_hallucination: "HIGH"     # Supply chain risks are serious
+    hardcoded_secrets: "CRITICAL"     # Credential exposure is critical  
+    weak_jwt: "HIGH"                  # Authentication bypass risks
+    missing_rate_limiting: "MEDIUM"   # DoS/abuse risks
+    sql_injection: "CRITICAL"         # Data breach risks
+    xss_risks: "HIGH"                 # User security risks
+    command_injection: "CRITICAL"     # System compromise risks

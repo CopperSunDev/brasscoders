@@ -1,0 +1,24 @@
+id: brass.python.sql-injection-execute-suspicious-var
+language: python
+rule:
+  any:
+    - pattern: $X.execute(query)
+    - pattern: $X.execute(sql)
+    - pattern: $X.execute(stmt)
+    - pattern: $X.execute(statement)
+    - pattern: $X.execute(update_query)
+    - pattern: $X.execute(delete_query)
+    - pattern: $X.execute(insert_query)
+    - pattern: $X.execute(select_query)
+    - pattern: $X.execute(raw_query)
+    - pattern: $X.execute(raw_sql)
+severity: warning
+message: >-
+  SQL execution with a variable named like raw SQL (query/sql/stmt/etc.).
+  If that variable is built via string interpolation or concatenation,
+  it's a SQL injection. Use parameterized queries (positional or named
+  placeholders) instead.
+metadata:
+  brass_kind: sql_injection
+  cwe: CWE-89
+  confidence_note: name-based heuristic, expect higher FP rate than literal-fstring rule

@@ -1,0 +1,27 @@
+id: brass.javascript.sql-injection-template-literal
+language: javascript
+rule:
+  any:
+    # pg / node-postgres
+    - pattern: $CLIENT.query(`$$$${$X}$$$`)
+    - pattern: $CLIENT.query(`$$$${$X}$$$`, $$$)
+    # mysql / mysql2 / sqlite3 (query / exec / run)
+    - pattern: $CONN.execute(`$$$${$X}$$$`)
+    - pattern: $CONN.execute(`$$$${$X}$$$`, $$$)
+    - pattern: $DB.exec(`$$$${$X}$$$`)
+    - pattern: $DB.run(`$$$${$X}$$$`)
+    # knex raw
+    - pattern: $K.raw(`$$$${$X}$$$`)
+    # Prisma unsafe (the safe forms — $queryRaw with prepared template — are
+    # NOT a sink shape because Prisma parameterizes them; only the *Unsafe
+    # variants are dangerous)
+    - pattern: $PRISMA.$queryRawUnsafe(`$$$${$X}$$$`)
+    - pattern: $PRISMA.$executeRawUnsafe(`$$$${$X}$$$`)
+severity: warning
+message: >-
+  SQL query built via JavaScript template-literal interpolation. Use
+  parameterized queries (positional placeholders or the safe Prisma
+  template-tag forms) instead of building SQL with ${}.
+metadata:
+  brass_kind: sql_injection
+  cwe: CWE-89
