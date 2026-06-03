@@ -41,7 +41,14 @@ _SECRET_LEAK_DETECTORS = frozenset({
     # does `detected_by.lower()` before lookup), so all entries must
     # be lowercase here.
     'auth_pattern_analyzer',  # AIAuthPatternAnalyzer.hardcoded_secrets
-    'bandit',  # B105 / B106 / B107 / B324 hit hardcoded credentials
+    # 'bandit' is NOT here — it's discriminated per-test_id below via
+    # _BANDIT_CREDENTIAL_TEST_IDS. Only B105/B106/B107 actually embed
+    # a credential literal in issue_text. Treating all bandit findings
+    # as credential-bearing collapsed B602 (command injection), B701
+    # (jinja2 autoescape), B301/B403 (deserialization) and others to
+    # the generic "Possible hardcoded credential" label, hiding the
+    # real vulnerability class from downstream AI consumers.
+    # (Bug reported 2026-06-02; fix landed in 2.0.8.)
     # The detect-secrets-backed SecretsScanner. Its findings' raw
     # context contains the credential string itself; sanitization
     # must strip it. Added 2026-05-15 after Phase D's code_snippet
@@ -81,6 +88,23 @@ _SECRET_LEAK_PATTERN_TYPES = frozenset({
     'hardcoded_password_funcarg',
     'api_key',
     'jwt_secret',
+})
+
+
+# Bandit test_ids whose `issue_text` embeds a credential literal.
+# These get the full secret-redaction treatment at the YAML boundary
+# (title/description replaced with a generic safe form). Every other
+# bandit test_id passes through with its real issue_text preserved.
+#
+# Source: bandit plugin docs — these are the only tests in the
+# hardcoded-password family. B324 (weak hash) was previously grouped
+# here in a comment but its issue_text does NOT carry the digest
+# literal (Bandit reports the algorithm name, not the hash output),
+# so it stays out of this set.
+_BANDIT_CREDENTIAL_TEST_IDS = frozenset({
+    'B105',  # hardcoded_password_string
+    'B106',  # hardcoded_password_funcarg
+    'B107',  # hardcoded_password_default
 })
 
 
@@ -360,7 +384,18 @@ class BaseYAMLBuilder(ABC):
                 or metadata.get('test_name', '')
             )
             pattern_type_lower = str(pattern_type).lower()
+            # Bandit findings discriminate by test_id: only B105/B106/B107
+            # embed the credential literal in issue_text. Other bandit
+            # tests (B602/B603/B604 shell injection, B701 jinja2
+            # autoescape, B301/B403 deserialization, etc.) have generic
+            # issue_text that should pass through unchanged so the AI
+            # consumer sees the real vuln class.
+            is_bandit_credential = (
+                detected_by == 'bandit'
+                and metadata.get('bandit_test_id') in _BANDIT_CREDENTIAL_TEST_IDS
+            )
             if (detected_by in _SECRET_LEAK_DETECTORS
+                    or is_bandit_credential
                     or pattern_type_lower in _SECRET_LEAK_PATTERN_TYPES):
                 for key in PRIVACY_SENSITIVE_METADATA_KEYS:
                     metadata.pop(key, None)

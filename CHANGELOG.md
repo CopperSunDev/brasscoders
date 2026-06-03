@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 _No unreleased changes._
 
+## [2.0.8] — 2026-06-02
+
+Fixes a high-severity quality bug in the Bandit→Finding mapper at the
+YAML output boundary. Prior to 2.0.8, *every* Bandit finding was
+silently relabeled `"Possible hardcoded credential (value redacted)"`
+because the credential-redaction allowlist treated all `detected_by ==
+'bandit'` findings as credential-bearing. In reality only Bandit
+B105/B106/B107 (hardcoded-password tests) embed a literal credential
+in `issue_text`; B602 (shell injection), B701 (jinja2 autoescape),
+B301/B403 (deserialization), B324 (weak hash) etc. carry generic
+issue text that was getting clobbered.
+
+After the fix, only B105/B106/B107 receive the credential-redaction
+treatment. Every other Bandit test_id passes through with its real
+`issue_text` preserved in title + description, so downstream AI
+consumers see the actual vulnerability class.
+
+Implementation: removed `'bandit'` from `_SECRET_LEAK_DETECTORS` and
+added `_BANDIT_CREDENTIAL_TEST_IDS = {'B105','B106','B107'}` with a
+test_id discrimination in `sanitize_metadata_for_serialization`.
+
+Test: `test_sanitizer_preserves_non_credential_bandit_findings` in
+`tests/unit/test_yaml_builders.py` pins the new behavior (6
+non-credential test_ids verified to retain real titles; B105 still
+gets the credential redaction).
+
+Bug reported externally 2026-06-02; reproducible with `bandit -q -r
+<file> -f json` vs `brasscoders --offline scan <dir>` on any codebase
+containing non-credential Bandit findings.
+
 ## Launch — 2026-06-01
 
 BrassCoders Paid tier is LIVE on LemonSqueezy. End-to-end purchase flow
