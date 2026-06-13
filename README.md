@@ -1,4 +1,4 @@
-# BrassCoders — catches the bugs your AI coding assistant misses
+# BrassCoders — catches what AI assistants structurally miss
 
 BrassCoders scans a codebase and produces a small set of structured intelligence files
 (`.brass/*.yaml`) designed to be read by Claude Code, Cursor, or any other AI
@@ -6,8 +6,10 @@ coding assistant. The goal is to surface what matters — real security risks,
 PII leaks, performance pitfalls — and hide what doesn't, so the AI's review
 stops drowning useful signal in low-confidence noise.
 
-BrassCoders is a one-shot CLI: it scans, writes the YAML, and exits. There is no
-background daemon, no telemetry by default, and no outbound network calls
+BrassCoders is a **deterministic, local, free pre-merge gate**: the same scan on
+the same code produces the same findings every run — no API call, no tokens, no
+per-run cost. It runs automatically in CI without anyone needing to ask. There is
+no background daemon, no telemetry by default, and no outbound network calls
 unless you opt in.
 
 ## What it produces
