@@ -88,28 +88,6 @@ brass scan --code
 brass scan --privacy
 ```
 
-#### `brass watch` - Continuous Monitoring
-
-Monitor your codebase for changes and automatically re-analyze when files are modified.
-
-**Usage:**
-```bash
-brass watch [OPTIONS]
-```
-
-**Options:**
-- `--poll-interval SECONDS` - How often to check for changes (default: 2.0)
-- `--debounce-delay SECONDS` - Wait time after changes stop before analyzing (default: 5.0)
-
-**Examples:**
-```bash
-# Start monitoring with default settings
-brass watch
-
-# Custom polling settings for large projects
-brass watch --poll-interval 5.0 --debounce-delay 10.0
-```
-
 #### `brass status` - View Analysis Results
 
 Display summary of your latest analysis results and statistics.
@@ -166,12 +144,7 @@ BrassCoders generates several intelligence files in the output directory (defaul
 
 2. **Review findings** in ai_instructions.yaml with your AI assistant
 
-3. **Monitor changes** during development:
-   ```bash
-   brass watch
-   ```
-
-4. **Quick checks** before commits:
+3. **Quick checks** before commits:
    ```bash
    brass scan --fast
    ```
@@ -310,8 +283,7 @@ brass scan --fast
 
 1. **Start with complete analysis** - Run `brass scan` first to get the full picture
 2. **Use developer mode for focus** - `brass scan --dev` filters out test noise
-3. **Monitor during development** - `brass watch` catches issues early
-4. **Review ai_instructions.yaml** - This is the main file optimized for AI assistants
+3. **Review ai_instructions.yaml** - This is the main file optimized for AI assistants
 
 ### Performance Optimization
 

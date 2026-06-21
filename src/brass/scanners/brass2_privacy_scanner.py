@@ -567,8 +567,8 @@ class Brass2PrivacyScanner:
         Args:
             file_paths: When provided, scan exactly these files instead of
                 walking the project. Matches every other scanner's contract;
-                IncrementalAnalyzer (watch mode) and FilePrefilterScanner
-                pre-narrow the file list and pass it through.
+                FilePrefilterScanner pre-narrows the file list and passes
+                it through.
         
         Returns:
             List[Finding] - Sacred Brass2 interface

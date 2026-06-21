@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 _No unreleased changes._
 
+## [2.0.9] — 2026-06-20
+
+Removes the non-functional `watch` subcommand and its supporting
+`monitoring` module. The command never worked — its argparse setup
+was missing the `project_path` positional and `_initialize_components`
+left `self.project_path` unset, so `brasscoders watch` raised on every
+invocation. It also wired only two of the twelve scanners into its
+incremental analyzer, which would have produced a degraded, inconsistent
+scan even had it run. Continuous-watch is not a feature we want, so the
+command, the `monitoring/` package (FileWatcher + IncrementalAnalyzer),
+and all `watch` references in `--help`, the version banner, and the user
+docs have been removed. No other command is affected; offline-first
+scanning, filtering, and licensing are unchanged.
+
 ## [2.0.8] — 2026-06-02
 
 Fixes a high-severity quality bug in the Bandit→Finding mapper at the

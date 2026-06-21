@@ -1,8 +1,8 @@
 """
 BrassCLI - Command-line interface for the new Copper Sun Brass system.
 
-This component provides a user-friendly CLI for running scans, monitoring
-files, and generating intelligence reports.
+This component provides a user-friendly CLI for running scans and
+generating intelligence reports.
 """
 
 import concurrent.futures
@@ -36,7 +36,6 @@ from brass.core import finding_cache as _finding_cache
 from brass.core import change_detection as _change_detection
 from brass.scanners.noise_reduction_scanner import NoiseReductionScanner
 from brass.output.yaml_output_generator_v2 import YAMLOutputGeneratorV2
-from brass.monitoring.file_watcher import FileWatcher, IncrementalAnalyzer
 from brass.models.finding import Finding
 from brass.core.logging_config import BrassLogger, get_logger
 from brass.core.error_reporter import get_error_reporter, save_session_error_report
@@ -54,7 +53,6 @@ class BrassCLI:
     
     Provides commands for:
     - One-time analysis (scan)
-    - Continuous monitoring (watch)
     - Report generation
     - System status and configuration
     """
@@ -79,7 +77,6 @@ class BrassCLI:
         self.pysa_taint_scanner = None
         self.ranker = None
         self.output_generator = None
-        self.file_watcher = None
 
         # Per-scanner status from the most recent scan (loose end #8).
         # Populated in `_run_scanner_task`, dumped to scanner_timings.json
@@ -170,7 +167,6 @@ class BrassCLI:
   brasscoders scan --output-dir=.reports  # Custom output location
 
 ⚡ Workflow Commands:
-  brasscoders watch                    # 👁️ Monitor files for changes
   brasscoders status                   # 📊 View last analysis results
   brasscoders version                  # ℹ️ Show version and components
             """
@@ -415,27 +411,7 @@ class BrassCLI:
                  'when the gateway is unavailable)',
         )
         scan_parser.set_defaults(func=self._cmd_scan)
-        
-        # Watch command with enhanced help
-        watch_parser = subparsers.add_parser(
-            'watch', 
-            help='👁️ Monitor files for changes and auto-analyze',
-            description='🎺 Continuous Monitoring - Watch your code and analyze changes in real-time'
-        )
-        watch_parser.add_argument(
-            '--poll-interval',
-            type=float,
-            default=2.0,
-            help='⏱️ How often to check for file changes (seconds, default: 2.0)'
-        )
-        watch_parser.add_argument(
-            '--debounce-delay',
-            type=float,
-            default=5.0,
-            help='🕐 Wait time before analyzing after changes stop (seconds, default: 5.0)'
-        )
-        watch_parser.set_defaults(func=self._cmd_watch)
-        
+
         # Status command with enhanced help
         status_parser = subparsers.add_parser(
             'status', 
@@ -489,7 +465,7 @@ class BrassCLI:
         #   - brasscoders license     POST /v1/licenses/validate (cached weekly)
         #   - brasscoders deactivate  POST /v1/licenses/deactivate
         # These are the ONLY commands that touch the network for license
-        # management. brasscoders scan / watch / filter / status / version stay
+        # management. brasscoders scan / filter / status / version stay
         # offline-first and continue to honor --offline.
         activate_parser = subparsers.add_parser(
             'activate',
@@ -1973,72 +1949,8 @@ class BrassCLI:
         elif getattr(args, 'dev', False):
             print("   📊 See all findings: brasscoders scan (includes test/build files)")
         
-        print("   👁️ Monitor changes: brasscoders watch")
         print("   📊 View status: brasscoders status")
-    
-    def _cmd_watch(self, args) -> int:
-        """Execute watch command."""
-        project_path = Path(args.project_path).resolve()
-        
-        if not project_path.exists():
-            print(f"❌ Project path does not exist: {project_path}")
-            return 1
-        
-        print(f"👁️ Starting continuous monitoring of {project_path.name}")
-        print(f"📁 Project: {project_path}")
-        print(f"⏱️ Poll interval: {args.poll_interval}s")
-        print(f"🕐 Debounce delay: {args.debounce_delay}s")
-        print("\nPress Ctrl+C to stop monitoring...\n")
-        
-        # Initialize components
-        self._initialize_components(str(project_path))
-        
-        # Create incremental analyzer
-        incremental_analyzer = IncrementalAnalyzer(
-            self.code_scanner,
-            self.brass2_privacy_scanner,
-            self.ranker,
-            self.output_generator
-        )
-        
-        def on_changes_detected(changed_files: List[str]):
-            """Callback for when file changes are detected."""
-            print(f"📝 Changes detected in {len(changed_files)} files")
-            result = incremental_analyzer.analyze_changes(changed_files)
-            
-            if result['status'] == 'success':
-                print(f"✅ Analysis updated: {result['findings_detected']} findings, {result['output_files_updated']} files updated")
-            elif result['status'] == 'no_changes':
-                print("ℹ️ No relevant changes to analyze")
-            else:
-                print(f"❌ Analysis failed: {result.get('error_message', 'Unknown error')}")
-        
-        # Start monitoring
-        try:
-            with FileWatcher(
-                str(project_path),
-                on_changes_detected=on_changes_detected,
-                poll_interval=args.poll_interval,
-                debounce_delay=args.debounce_delay
-            ) as watcher:
-                
-                print("👁️ Monitoring started - watching for changes...")
 
-                # Block on the watcher's shutdown event rather than busy-
-                # spinning every second. The FileWatcher runs its own
-                # daemon thread; the main thread just waits to be interrupted.
-                try:
-                    watcher.shutdown_event.wait()
-                except KeyboardInterrupt:
-                    pass
-        
-        except Exception as e:
-            print(f"❌ Monitoring error: {e}")
-            return 1
-        
-        print("\n👋 Monitoring stopped")
-        return 0
-    
     def _cmd_status(self, args) -> int:
         """Execute status command."""
         project_path = Path(args.project_path).resolve()
@@ -2670,7 +2582,6 @@ class BrassCLI:
         print("   • BrassPerformanceScanner - Performance Intelligence for AI code (Radon + Vulture + AI patterns)")
         print("   • IntelligenceRanker - Weighted priority system")
         print("   • OutputGenerator - AI-optimized intelligence files")
-        print("   • FileWatcher - Real-time change monitoring")
         print("   • CLI - User-friendly command interface")
         print()
         print("💡 Get Started:")
@@ -2678,7 +2589,6 @@ class BrassCLI:
         print("   brasscoders scan --fast                   # Quick code review")
         print("   brasscoders scan --dev                    # Developer focus")
         print("   brasscoders scan --performance-full       # Complete performance analysis")
-        print("   brasscoders watch                         # Monitor changes")
         print()
 
         # Soft update warning. Skipped when --offline or

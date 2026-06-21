@@ -81,16 +81,6 @@ Copy the contents of `ai_instructions.yaml` into your Claude Code / Cursor
 session and ask the assistant to address the findings in order. The YAML
 is intentionally compact so it fits well within most context budgets.
 
-## 5. Iterate with watch mode (optional)
-
-```bash
-brasscoders --offline watch
-```
-
-Watch mode re-runs the scanners on file changes (polling every 2 seconds,
-debounced by 5). This is useful when you're actively editing and want the
-intelligence files to stay current.
-
 ## What to do when something looks wrong
 
 - **The output flagged a real test card / dummy SSN.** This is expected for

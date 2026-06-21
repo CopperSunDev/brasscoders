@@ -109,9 +109,9 @@ class BrassLogger:
             
             # Create logger under brass namespace
             if not name.startswith('brass.'):
-                if '.' in name and name.split('.')[-1] in ['brass_cli', 'code_scanner', 'privacy_scanner', 
-                                                          'intelligence_ranker', 'output_generator', 
-                                                          'file_watcher', 'content_safety']:
+                if '.' in name and name.split('.')[-1] in ['brass_cli', 'code_scanner', 'privacy_scanner',
+                                                          'intelligence_ranker', 'output_generator',
+                                                          'content_safety']:
                     logger_name = f"brass.{name.split('.')[-1]}"
                 else:
                     logger_name = f"brass.{name}"
