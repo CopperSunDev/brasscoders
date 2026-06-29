@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 _No unreleased changes._
 
+## [2.0.10] — 2026-06-29
+
+Metadata-only release. Corrects the PyPI `Operating System` trove
+classifiers from `OS Independent` to `MacOS` + `POSIX :: Linux`, so the
+published package metadata matches reality: native Windows is not
+supported (Pyre/Pysa have no Windows build; `fcntl.flock` cache locking
+is Unix-only), only macOS, Linux, and Windows via WSL2. No code changes —
+2.0.9's sidebar wrongly advertised OS-independence while the README's
+platform table already documented WSL2-only support.
+
 ## [2.0.9] — 2026-06-20
 
 Removes the non-functional `watch` subcommand and its supporting
