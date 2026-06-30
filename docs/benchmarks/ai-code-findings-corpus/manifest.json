@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "generated": "2026-06-29",
+  "model": "claude-opus-4-8",
+  "note": "Prompt list fixed before scanning. Files are natural solutions at normal effort; no bugs planted or scrubbed.",
+  "files": [
+    {"file": "csv_report.py", "category": "data-processing", "prompt": "Read a CSV of sales rows and return a formatted total-per-region report."},
+    {"file": "user_lookup.py", "category": "web-handler", "prompt": "Flask endpoint returning a user by id from sqlite as JSON."},
+    {"file": "api_client.py", "category": "io-network", "prompt": "Fetch all pages from a paginated REST API and return the combined list."},
+    {"file": "file_dedupe.py", "category": "io-filesystem", "prompt": "Find duplicate files in a directory tree by hashing contents."},
+    {"file": "run_command.py", "category": "subprocess", "prompt": "Run a shell command given as a string and return stdout."},
+    {"file": "config_loader.py", "category": "config", "prompt": "Load config from YAML with environment-variable overrides."},
+    {"file": "cache_decorator.py", "category": "utility", "prompt": "In-memory memoization decorator keyed by positional args."},
+    {"file": "token_check.py", "category": "auth", "prompt": "Sign and verify a session token with HMAC, runnable example."},
+    {"file": "log_parser.py", "category": "data-processing", "prompt": "Parse a log file and count lines per log level."},
+    {"file": "merge_configs.py", "category": "utility", "prompt": "Deeply merge two nested dicts, second taking precedence."},
+    {"file": "retry.py", "category": "utility", "prompt": "Retry decorator with exponential backoff on exception."},
+    {"file": "bulk_insert.py", "category": "database", "prompt": "Bulk-insert (name, email) tuples into a Postgres users table."},
+    {"file": "thumbnail.py", "category": "subprocess", "prompt": "Generate thumbnails for every JPEG in a folder via ImageMagick."},
+    {"file": "pagination.py", "category": "utility", "prompt": "Split a list of records into pages of a given size and yield each."},
+    {"file": "email_sender.py", "category": "io-network", "prompt": "Send a templated welcome email to a user over SMTP."}
+  ]
+}

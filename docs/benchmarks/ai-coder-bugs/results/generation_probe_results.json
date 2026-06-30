@@ -1,0 +1,181 @@
+{
+  "probe": "generation_mode",
+  "model": "claude-sonnet-4-6",
+  "run_at": "2026-06-13T18:08:18Z",
+  "python": "3.12.5",
+  "summary": {
+    "total_tasks": 6,
+    "wedge_tasks": 5,
+    "brasscoders_caught_wedge": 1,
+    "model_caught_wedge": 2,
+    "wall_time_sec": 289.37
+  },
+  "tasks": [
+    {
+      "task_id": "csv_builder",
+      "task_prompt": "Write a Python function that takes a list of dicts and returns a CSV string. Each dict is a row; keys from the first dict are the headers.",
+      "wedge_category": "string_concat_loop",
+      "notes": "Classic: AI reaches for += in a loop instead of list + ''.join",
+      "generated_code": "import csv\nimport io\n\n\ndef dicts_to_csv(data: list[dict]) -> str:\n    if not data:\n        return \"\"\n    \n    output = io.StringIO()\n    fieldnames = list(data[0].keys())\n    \n    writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction='ignore')\n    writer.writeheader()\n    writer.writerows(data)\n    \n    return output.getvalue()",
+      "brasscoders": {
+        "findings": [
+          {
+            "line": 1,
+            "text": "missing-module-docstring Missing module docstring  convention pylint",
+            "signals": []
+          },
+          {
+            "line": 5,
+            "text": "missing-function-docstring Missing function or method docstring  convention pylint",
+            "signals": []
+          }
+        ]
+      },
+      "brasscoders_caught_wedge": false,
+      "model_review": "**Line 11** \u2014 **Correctness**: `extrasaction='ignore'` silently drops fields in rows whose keys differ from `data[0]`, hiding data loss when dictionaries are not all structurally identical.\n\n**Line 9** \u2014 **Correctness/Robustness**: Field order is derived only from the first dictionary, so columns from subsequent rows that introduce new keys will be silently omitted rather than raising an error or being included.\n\n**Line 16** \u2014 **Resource Leak**: The `StringIO` buffer is never explicitly closed; while low-risk in CPython, it is not best practice and should use a `with` block or explicit `output.close()`.",
+      "model_caught_wedge": false
+    },
+    {
+      "task_id": "recent_feed",
+      "task_prompt": "Write a Python function that builds a list of activity events where the most recently added event appears first.",
+      "wedge_category": "list_insert_zero_loop",
+      "notes": "AI reaches for list.insert(0, item) in a loop",
+      "generated_code": "def build_activity_log(events):\n    \"\"\"\n    Builds a list of activity events where the most recently added event appears first.\n    \n    Args:\n        events: A list of events to add to the activity log\n        \n    Returns:\n        A list of events with the most recently added event appearing first\n    \"\"\"\n    activity_log = []\n    \n    for event in events:\n        activity_log.insert(0, event)\n    \n    return activity_log\n\n\ndef add_event_to_log(activity_log, event):\n    \"\"\"\n    Adds a new event to the activity log at the beginning.\n    \n    Args:\n        activity_log: The existing activity log\n        event: The new event to add\n        \n    Returns:\n        The updated activity log with the new event at the front\n    \"\"\"\n    activity_log.insert(0, event)\n    return activity_log\n\n\nif __name__ == \"__main__\":\n    # Example usage\n    events = [\n        {\"type\": \"login\", \"user\": \"alice\", \"timestamp\": \"2024-01-01 10:00:00\"},\n        {\"type\": \"purchase\", \"user\": \"alice\", \"timestamp\": \"2024-01-01 10:05:00\"},\n        {\"type\": \"logout\", \"user\": \"alice\", \"timestamp\": \"2024-01-01 10:10:00\"},\n    ]\n    \n    log = build_activity_log(events)\n    print(\"Activity Log (most recent first):\")\n    for event in log:\n        print(event)\n    \n    print(\"\\nAdding new event...\")\n    new_event = {\"type\": \"login\", \"user\": \"bob\", \"timestamp\": \"2024-01-01 10:15:00\"}\n    updated_log = add_event_to_log(log, new_event)\n    print(\"Updated Activity Log:\")\n    for event in updated_log:\n        print(event)",
+      "brasscoders": {
+        "findings": [
+          {
+            "line": 1,
+            "text": "redefined-outer-name Redefining name 'events' from outer scope (line 36)  warning pylint",
+            "signals": []
+          },
+          {
+            "line": 1,
+            "text": "missing-module-docstring Missing module docstring  convention pylint",
+            "signals": []
+          },
+          {
+            "line": 14,
+            "text": "Inefficient List Operation: insert(0) in loop Using list.insert(0, item) in loop causes O(N2) behavior. Each insert(0) requires shifting all existing elements. list_insert_zero_loop  BrassPerformanceScanner",
+            "signals": [
+              "list_insert_zero_loop"
+            ]
+          }
+        ]
+      },
+      "brasscoders_caught_wedge": true,
+      "model_review": "Here are the issues found:\n\n**Line 13** \u2014 Performance Anti-Pattern\n`list.insert(0, ...)` inside a loop is O(n\u00b2) overall; use `list.append()` then reverse, or use `collections.deque`, instead.\n\n**Line 13** \u2014 Correctness Defect\nThe loop reverses the input list, but the docstring says \"most recently added event appears first\" \u2014 if \"most recently added\" means highest index in the input, the reversal is correct, but this assumption is undocumented and fragile (e.g., events are not sorted by timestamp, so the result is misleading).\n\n**Line 28** \u2014 Correctness / API Design Defect\n`add_event_to_log` mutates the caller's list in-place *and* returns it, creating a misleading API; callers may not expect mutation, and the return value gives a false impression that a new list is produced.\n\n**Line 28** \u2014 Performance Anti-Pattern\nSame O(n) shift-on-insert issue as line 13; for a log that grows incrementally this is the hot path and should use `collections.deque(maxlen=N)` or append-and-reverse strategy.\n\n**Line 28** \u2014 Missing Input Validation\nNeither function checks that `activity_log` is actually a list (or mutable sequence), so passing `None` or a tuple raises an unhelpful `AttributeError`/`TypeError` with no descriptive message.",
+      "model_caught_wedge": true
+    },
+    {
+      "task_id": "order_match",
+      "task_prompt": "Write a Python function that finds every (customer, order, item) combination where the IDs match: customer['id'] == order['customer_id'] and order['id'] == item['order_id'].",
+      "wedge_category": "nested_loops",
+      "notes": "AI maps natural-language 'for each combination' directly to triple-nested loops",
+      "generated_code": "def find_matching_combinations(customers, orders, items):\n    \"\"\"\n    Find every (customer, order, item) combination where IDs match.\n    \n    Args:\n        customers: List of customer dictionaries with 'id' key\n        orders: List of order dictionaries with 'id' and 'customer_id' keys\n        items: List of item dictionaries with 'order_id' key\n    \n    Returns:\n        List of tuples (customer, order, item) where IDs match\n    \"\"\"\n    combinations = []\n    \n    for customer in customers:\n        for order in orders:\n            if customer['id'] == order['customer_id']:\n                for item in items:\n                    if order['id'] == item['order_id']:\n                        combinations.append((customer, order, item))\n    \n    return combinations\n\n\ndef find_matching_combinations_optimized(customers, orders, items):\n    \"\"\"\n    Optimized version using dictionaries for O(n) lookups instead of O(n^3).\n    \n    Args:\n        customers: List of customer dictionaries with 'id' key\n        orders: List of order dictionaries with 'id' and 'customer_id' keys\n        items: List of item dictionaries with 'order_id' key\n    \n    Returns:\n        List of tuples (customer, order, item) where IDs match\n    \"\"\"\n    # Build lookup dictionaries\n    customer_dict = {customer['id']: customer for customer in customers}\n    \n    # Group orders by customer_id\n    orders_by_customer = {}\n    for order in orders:\n        customer_id = order['customer_id']\n        if customer_id not in orders_by_customer:\n            orders_by_customer[customer_id] = []\n        orders_by_customer[customer_id].append(order)\n    \n    # Group items by order_id\n    items_by_order = {}\n    for item in items:\n        order_id = item['order_id']\n        if order_id not in items_by_order:\n            items_by_order[order_id] = []\n        items_by_order[order_id].append(item)\n    \n    combinations = []\n    \n    for customer_id, customer in customer_dict.items():\n        customer_orders = orders_by_customer.get(customer_id, [])\n        for order in customer_orders:\n            order_items = items_by_order.get(order['id'], [])\n            for item in order_items:\n                combinations.append((customer, order, item))\n    \n    return combinations\n\n\nif __name__ == \"__main__\":\n    # Example usage\n    customers = [\n        {'id': 1, 'name': 'Alice'},\n        {'id': 2, 'name': 'Bob'},\n        {'id': 3, 'name': 'Charlie'}\n    ]\n    \n    orders = [\n        {'id': 101, 'customer_id': 1, 'total': 50.00},\n        {'id': 102, 'customer_id': 1, 'total': 75.00},\n        {'id': 103, 'customer_id': 2, 'total': 30.00},\n        {'id': 104, 'customer_id': 4, 'total': 20.00",
+      "brasscoders": {
+        "findings": [
+          {
+            "line": 80,
+            "text": "Syntax Error in AI-Generated Code File contains syntax errors that prevent execution: '{' was never closed syntax_error  BrassPerformanceScanner",
+            "signals": []
+          },
+          {
+            "line": 80,
+            "text": "Syntax Error in AI-Generated Code File contains syntax errors that prevent execution: '{' was never closed   PhantomAICodeScanner",
+            "signals": []
+          },
+          {
+            "line": 80,
+            "text": "syntax-error Parsing failed: 'unexpected EOF while parsing (order_match, line 80)'  error pylint",
+            "signals": []
+          },
+          {
+            "line": null,
+            "text": "Analysis Limitation PhantomAICodeScanner encountered limitations analyzing this file: Import analysis failed: '{' was never closed (<unknown>, line 80)   PhantomAICodeScanner",
+            "signals": []
+          }
+        ]
+      },
+      "brasscoders_caught_wedge": false,
+      "model_review": "I'll analyze the code systematically for bugs, security issues, performance anti-patterns, and correctness defects.\n\n---\n\n**Line 83 \u2014 Bug (Syntax Error)**\nThe `orders` list is missing the closing `]` and `)`; the file ends mid-expression, making the module unrunnable.\n\n**Line 83 \u2014 Bug (Data Integrity)**\nOrder `id: 104` references `customer_id: 4`, which does not exist in `customers`, so it will silently produce no results \u2014 this is likely a test-data mistake that should be caught by a comment or assertion.\n\n**Line 14 \u2014 Performance Anti-Pattern (O(n\u00b3) complexity)**\n`find_matching_combinations` nests three loops over full lists, giving O(customers \u00d7 orders \u00d7 items) time complexity with no early exit or indexing.\n\n**Line 16 \u2014 Correctness / Robustness**\n`customer['id']` and `order['customer_id']` will raise an unhandled `KeyError` if either key is absent; no guard or `dict.get()` is used anywhere in either function.\n\n**Line 38 \u2014 Minor Performance**\n`orders_by_customer` manually replicates `collections.defaultdict(list)`, which is cleaner and marginally faster; same applies to `items_by_order` on line 45.\n\n**Line 25 \u2014 Correctness (Duplicate customer IDs)**\n`customer_dict` is built with a dict comprehension, so if `customers` contains duplicate `id` values only the last entry is kept, silently dropping earlier customers.\n\n**Lines 14 / 29 \u2014 Security / Robustness**\nNeither function validates that inputs are iterable or that each element is a dict, so passing `None` or malformed entries causes an unhelpful `TypeError` or `AttributeError` with no diagnostic message.\n\n**Lines 57\u201359 \u2014 Correctness (Output order non-determinism)**\n`find_matching_combinations_optimized` iterates `customer_dict.items()`, whose order matches insertion order in Python 3.7+, but this is an implicit assumption never documented; if the two functions are meant to be equivalent their output order should be explicitly guaranteed or tested.\n\n**Lines 14 / 29 \u2014 Correctness (No equivalence test)**\nThe module provides both a na\u00efve and an optimised version but includes no assertion or test confirming they return identical results, making silent divergence likely during future edits.\n\n---\n\n**Summary table**\n\n| Line | Category | Issue |\n|------|----------|-------|\n| 83 | Bug \u2014 Syntax |",
+      "model_caught_wedge": false
+    },
+    {
+      "task_id": "socket_drain",
+      "task_prompt": "Write a Python function that reads from a socket and collects all the data into a list of byte chunks.",
+      "wedge_category": "unbounded_loop",
+      "notes": "AI omits the break/timeout/size-cap on while True",
+      "generated_code": "import socket\n\n\ndef read_from_socket(sock: socket.socket, buffer_size: int = 4096) -> list[bytes]:\n    \"\"\"\n    Reads all data from a socket and collects it into a list of byte chunks.\n    \n    Args:\n        sock: The socket to read from\n        buffer_size: The size of each read buffer (default: 4096 bytes)\n    \n    Returns:\n        A list of byte chunks read from the socket\n    \"\"\"\n    chunks = []\n    \n    while True:\n        try:\n            chunk = sock.recv(buffer_size)\n            if not chunk:\n                break\n            chunks.append(chunk)\n        except socket.timeout:\n            break\n        except socket.error as e:\n            raise RuntimeError(f\"Socket error while reading: {e}\") from e\n    \n    return chunks\n\n\ndef read_from_socket_with_timeout(\n    host: str, \n    port: int, \n    timeout: float = 5.0, \n    buffer_size: int = 4096\n) -> list[bytes]:\n    \"\"\"\n    Connects to a host and port, reads all data, and returns it as a list of byte chunks.\n    \n    Args:\n        host: The hostname or IP address to connect to\n        port: The port number to connect to\n        timeout: Socket timeout in seconds (default: 5.0)\n        buffer_size: The size of each read buffer (default: 4096 bytes)\n    \n    Returns:\n        A list of byte chunks read from the socket\n    \"\"\"\n    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:\n        sock.settimeout(timeout)\n        sock.connect((host, port))\n        return read_from_socket(sock, buffer_size)\n\n\nif __name__ == \"__main__\":\n    # Example usage with a simple server-client setup for testing\n    import threading\n    \n    def simple_server(host: str, port: int, data: bytes) -> None:\n        \"\"\"Simple server that sends data and closes the connection.\"\"\"\n        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_sock:\n            server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\n            server_sock.bind((host, port))\n            server_sock.listen(1)\n            conn, _ = server_sock.accept()\n            with conn:\n                conn.sendall(data)\n    \n    HOST = \"127.0.0.1\"\n    PORT = 65432\n    TEST_DATA = b\"Hello, World! \" * 1000  # ~14KB of test data\n    \n    server_thread = threading.Thread(target=simple_server, args=(HOST, PORT, TEST_DATA))\n    server_thread.start()\n    \n    import time\n    time.sleep(0.1)\n    \n    chunks = read_from_socket_with_timeout(HOST, PORT)\n    server_thread.join()\n    \n    total_data = b\"\".join(chunks)\n    print(f\"Number of chunks received: {len(chunks)}\")\n    print(f\"Total bytes received: {len(total_data)}\")\n    print(f\"Data matches: {total_data == TEST_DATA}\")",
+      "brasscoders": {
+        "findings": [
+          {
+            "line": 15,
+            "text": "redefined-outer-name Redefining name 'chunks' from outer scope (line 79)  warning pylint",
+            "signals": []
+          },
+          {
+            "line": 1,
+            "text": "missing-module-docstring Missing module docstring  convention pylint",
+            "signals": []
+          },
+          {
+            "line": 82,
+            "text": "invalid-name Constant name \"total_data\" doesn't conform to UPPER_CASE naming style  convention pylint",
+            "signals": []
+          }
+        ]
+      },
+      "brasscoders_caught_wedge": false,
+      "model_review": "Here are the issues I found:\n\n| # | Line | Category | Description |\n|---|------|----------|-------------|\n| 1 | 46 | **Correctness** | `AF_INET` hardcodes IPv4 only; IPv6 hostnames passed to `host` will fail silently or raise an unhelpful error instead of being handled. |\n| 2 | 48 | **Correctness** | `sock.connect()` can raise `socket.timeout` (wrapped as `TimeoutError`) or `socket.error` but these are not caught, so the caller gets a raw `socket.error` instead of the documented `RuntimeError`. |\n| 3 | 48 | **Security** | `host` is passed directly to `connect()` with no validation; a caller supplying an attacker-controlled host string enables SSRF with no restriction. |\n| 4 | 48 | **Correctness** | DNS resolution happens inside `connect()` after `settimeout()` is set, but `getaddrinfo` does **not** honour the socket timeout on all platforms, so DNS can hang indefinitely. |\n| 5 | 19 | **Correctness** | `socket.timeout` is a subclass of `OSError`/`socket.error` on Python 3.3+; the ordering of `except` clauses is fine here, but `socket.error` also catches `BlockingIOError` for non-blocking sockets, which should not silently raise `RuntimeError` \u2014 the exception mapping is too broad. |\n| 6 | 4 | **Performance** | `list[bytes]` is returned but callers almost universally need `b\"\".join(chunks)`; accumulating chunks into a list forces an extra allocation pass \u2014 returning a `bytearray` or joined `bytes` directly would be more ergonomic and efficient. |\n| 7 | 62 | **Correctness / Race condition** | `time.sleep(0.1)` is used to synchronise the client with the server thread; this is a race condition \u2014 on a loaded system the server may not yet be listening, causing `ConnectionRefusedError`. A `threading.Event` or retry loop should be used instead. |\n| 8 | 56 | **Correctness** | `simple_server` does not set a timeout on `server_sock.accept()`; if the client never connects (e.g., due to the race above), the server thread hangs forever, blocking `server_thread.join()` on line 77. |\n| 9 | 62\u201377 | **",
+      "model_caught_wedge": true
+    },
+    {
+      "task_id": "temp_average",
+      "task_prompt": "Write a Python function that takes a list of temperature readings (floats) and returns the average.",
+      "wedge_category": "unguarded_division",
+      "notes": "AI divides by len() without an empty-list guard",
+      "generated_code": "def average_temperature(temperatures):\n    if not temperatures:\n        return 0.0\n    return sum(temperatures) / len(temperatures)",
+      "brasscoders": {
+        "findings": [
+          {
+            "line": 1,
+            "text": "missing-module-docstring Missing module docstring  convention pylint",
+            "signals": []
+          },
+          {
+            "line": 1,
+            "text": "missing-function-docstring Missing function or method docstring  convention pylint",
+            "signals": []
+          }
+        ]
+      },
+      "brasscoders_caught_wedge": false,
+      "model_review": "NO ISSUES FOUND",
+      "model_caught_wedge": false
+    },
+    {
+      "task_id": "dict_merge",
+      "task_prompt": "Write a Python function that merges two dicts, with the second dict's values winning on key conflicts.",
+      "wedge_category": null,
+      "notes": "Control: most modern AI uses {**a, **b} or | \u2014 should be clean",
+      "generated_code": "def merge_dicts(dict1, dict2):\n    merged = {**dict1, **dict2}\n    return merged",
+      "brasscoders": {
+        "findings": [
+          {
+            "line": 1,
+            "text": "missing-module-docstring Missing module docstring  convention pylint",
+            "signals": []
+          },
+          {
+            "line": 1,
+            "text": "missing-function-docstring Missing function or method docstring  convention pylint",
+            "signals": []
+          }
+        ]
+      },
+      "brasscoders_caught_wedge": false,
+      "model_review": "NO ISSUES FOUND",
+      "model_caught_wedge": false
+    }
+  ]
+}

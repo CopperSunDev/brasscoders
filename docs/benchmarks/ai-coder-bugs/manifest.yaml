@@ -1,0 +1,115 @@
+# Ground-truth manifest for the AI-Coder-Bug benchmark.
+#
+# Every sample under corpus/ is AI-GENERATED code (see each file's
+# PROVENANCE docstring for the prompt that produced it) carrying one
+# planted, documented bug. This manifest is the answer key: each entry
+# names the file, the line of the bug, the bug category, and the
+# bug class. The runner (run_benchmark.py) scores each tool on whether
+# it produces a finding matching (file + category), with line used as a
+# secondary locator.
+#
+# Scoring is per-CATEGORY catch-rate, not per-tool-rule. A tool "catches"
+# a bug if it emits ANY finding for that file that maps to the bug's
+# category (mapping in run_benchmark.py CATEGORY_SIGNALS). This is fair
+# to every tool: we don't require a specific rule id, just that the tool
+# surfaces the right class of problem at the right place.
+#
+# `expected_catchers` is ANALYSIS METADATA ONLY (our prior hypothesis of
+# which tools should catch it) — it does NOT affect scoring. Scoring uses
+# only the real tool output. If reality contradicts the hypothesis, the
+# results table reports reality.
+
+dataset: ai-coder-bugs
+version: "1.0.0"
+generated: "2026-06-02"
+language: python
+description: >
+  Open dataset of AI-generated Python carrying the anti-patterns AI
+  coding assistants introduce. Head-to-head catch-rate of BrassCoders vs
+  Bandit vs Semgrep vs Pylint vs "ask the model to review it", scored
+  per bug category. 100% reproducible: run_benchmark.py regenerates
+  results/ from the corpus + the installed tools.
+
+samples:
+  # ---- WEDGE: AI-coder performance anti-patterns ----
+  - file: perf_antipatterns/csv_export_builder.py
+    line: 23
+    category: string_concat_loop
+    bug_class: "O(N^2) string concatenation with += in loop"
+    expected_catchers: [brasscoders]
+
+  - file: perf_antipatterns/recent_first_queue.py
+    line: 18
+    category: list_insert_zero_loop
+    bug_class: "O(N^2) list.insert(0, ...) in loop"
+    expected_catchers: [brasscoders]
+
+  - file: perf_antipatterns/match_orders.py
+    line: 19
+    category: nested_loops
+    bug_class: "O(N^3) triple-nested loop for a join-shaped problem"
+    expected_catchers: [brasscoders]
+
+  - file: perf_antipatterns/poll_until_ready.py
+    line: 17
+    category: unbounded_loop
+    bug_class: "Unbounded while True with no break / timeout / size cap"
+    expected_catchers: [brasscoders]
+
+  # ---- SECURITY / injection (comparator turf — honesty zone) ----
+  - file: security_injection/user_lookup.py
+    line: 14
+    category: sql_injection
+    bug_class: "SQL injection via f-string-built query (CWE-89)"
+    expected_catchers: [brasscoders, bandit, semgrep]
+
+  - file: security_injection/run_report.py
+    line: 13
+    category: command_injection
+    bug_class: "Command injection via subprocess shell=True (CWE-78)"
+    expected_catchers: [brasscoders, bandit, semgrep]
+
+  - file: security_injection/render_template.py
+    line: 14
+    category: xss
+    bug_class: "XSS via Jinja2 autoescape=False (CWE-79)"
+    expected_catchers: [brasscoders, bandit, semgrep]
+
+  - file: security_injection/load_config.py
+    line: 12
+    category: deserialization
+    bug_class: "Unsafe pickle.loads deserialization (CWE-502)"
+    expected_catchers: [brasscoders, bandit, semgrep]
+
+  # ---- SECRETS / PII (differentiator: local Luhn-validated detection) ----
+  - file: secrets_pii/api_client.py
+    line: 15
+    category: hardcoded_secret
+    bug_class: "Hardcoded AWS-style secret key (CWE-798)"
+    expected_catchers: [brasscoders, bandit, semgrep]
+
+  - file: secrets_pii/seed_customers.py
+    line: 16
+    category: pii_exposure
+    bug_class: "Luhn-valid card number + SSN-shaped value in seed data"
+    expected_catchers: [brasscoders]
+
+  # ---- CORRECTNESS / crossover ----
+  - file: correctness/calc_endpoint.py
+    line: 12
+    category: code_injection
+    bug_class: "eval() on untrusted input (CWE-95)"
+    expected_catchers: [brasscoders, bandit, semgrep]
+
+  - file: correctness/parse_temps.py
+    line: 12
+    category: unguarded_division
+    bug_class: "ZeroDivisionError: division by len() with no empty guard"
+    expected_catchers: []   # hypothesis: NO static tool catches this logic bug
+
+# Control samples carry NO planted bug. Any finding a tool emits on these
+# (other than pure style nits the runner ignores) counts as a FALSE
+# POSITIVE in the noise column.
+controls:
+  - file: correctness/clean_csv_export.py
+  - file: correctness/clean_user_lookup.py

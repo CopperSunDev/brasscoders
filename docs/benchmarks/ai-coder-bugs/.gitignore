@@ -1,0 +1,3 @@
+# brasscoders scan artifacts created when running the benchmark against the corpus
+.brass/
+.cache/
