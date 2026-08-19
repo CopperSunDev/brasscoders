@@ -1,217 +1,147 @@
-# Copper Sun Brass v2.0 - Architecture Documentation
+# Copper Sun Brass v2.0 — CLI Architecture
 
-## Executive Summary
+> Scope: the `brasscoders` CLI (this `cli/` half of the `brass-intelligence`
+> monorepo). Architectural *principles* (single responsibility, the sacred
+> `Finding` contract, one-direction data flow) live in `CLAUDE.md` and
+> `docs/developer-guide/ARCHITECTURAL_PRINCIPLES.md`; this doc describes the
+> runtime shape those principles produce.
 
-Copper Sun Brass v2.0 represents a **CLI-induced architecture** approach to AI development intelligence, in contrast to the original BrassCoders system's **monitoring-based architecture**. This design choice fundamentally changes how developers interact with the system and when intelligence is generated.
+## Executive summary
 
-## Architectural Philosophy Comparison
+Copper Sun Brass v2.0 is a **CLI-induced, on-demand** code-analysis tool: the user
+runs `brasscoders scan <project>`, the pipeline executes once, writes structured
+YAML to `.brass/`, and exits. There is no daemon and no background process.
 
-### Original BrassCoders: Monitoring-Based Architecture
+This is a deliberate departure from the project's **monitoring-based predecessor**
+(the archived `devwatch` system — see the repo-root README's "Historical archive"
+note), which ran continuous background agents. That approach was retired; the
+`watch` command and its monitoring module were the last vestige and were **removed
+in v2.0.9** (commits `532bbd3`, `9bd7d1b`). v2.0 is CLI-only. The "historical
+context" section below records why, so the trade-off isn't relitigated.
 
-**Core Principle**: "Set it and forget it" continuous intelligence
+## Why CLI-induced (settled rationale)
 
-```bash
-brass init    # Start once, automatic from here
-# Background agents run continuously
-# Intelligence files stay current automatically  
-# Claude Code always has fresh context
-```
+| Property | On-demand CLI (v2.0) | Continuous monitoring (retired) |
+|---|---|---|
+| Execution | Per-invocation, exits when done | Long-running daemon |
+| Resource use | Bursty, bounded to the run | Continuous background load |
+| When intelligence updates | When the user runs a scan | Automatically, in the background |
+| Failure surface | One process to reason about | Background-agent lifecycle to manage |
+| Fit | Pre-commit / CI gate / on-request deep dive | "Always-fresh context" ambition |
 
-**Characteristics:**
-- **4 Background Agents**: Scout, Watch, Strategist, Planner
-- **Automatic Operation**: Zero ongoing user intervention
-- **Continuous Updates**: Intelligence files refreshed automatically
-- **Daemon-like Process**: Runs independently across sessions
-- **Always-Current Context**: AI assistants get real-time project state
+The CLI model won on **predictability, debuggability, and CI-nativeness** — it drops
+cleanly into a pre-commit hook or a CI step, and a single invocation is trivial to
+reason about and reproduce. The cost is that intelligence is a point-in-time
+snapshot: it's only as fresh as the last scan. For BrassCoders' role (a deterministic
+gate that AI coding assistants consume), a reproducible snapshot is the feature, not
+a compromise.
 
-### New BrassCoders v2.0: CLI-Induced Architecture
+## Component architecture
 
-**Core Principle**: "Run when needed" on-demand intelligence
-
-```bash
-brass2 scan   # Analyze now
-brass2 watch  # Monitor when requested
-brass2 status # Check current state
-```
-
-**Characteristics:**
-- **6 CLI Components**: CodeScanner, PrivacyScanner, IntelligenceRanker, OutputGenerator, FileWatcher, CLI
-- **User-Controlled**: Analysis happens when commanded
-- **On-Demand Updates**: Intelligence generated per request
-- **Command-Line Tool**: Traditional CLI application model
-- **Snapshot Context**: AI assistants get point-in-time project analysis
-
-## Detailed Architecture Comparison
-
-| Aspect | Original BrassCoders | BrassCoders v2.0 |
-|--------|---------------|-------------|
-| **Execution Model** | Background daemon | CLI commands |
-| **Startup Command** | `brass init` | `brass2 scan` |
-| **User Interaction** | Once → automatic | Per-analysis → manual |
-| **Intelligence Freshness** | Real-time | On-demand |
-| **Process Lifecycle** | Long-running | Per-invocation |
-| **Resource Usage** | Continuous low | Burst high |
-| **AI Context Currency** | Always fresh | Fresh when run |
-| **Development Workflow** | Passive monitoring | Active analysis |
-
-## Component Architecture - BrassCoders v2.0
-
-### Core Components
-
-#### 1. CodeScanner
-- **Purpose**: Python AST static code analysis
-- **Technology**: Python `ast` module
-- **Detects**: Security issues, code quality problems, TODOs, complexity
-- **Execution**: On-demand via CLI
-
-#### 2. PrivacyScanner  
-- **Purpose**: PII and privacy compliance analysis
-- **Technology**: DualPurposeContentSafety integration
-- **Detects**: Personal data, credentials, compliance violations
-- **Execution**: On-demand via CLI
-
-#### 3. IntelligenceRanker
-- **Purpose**: Unified finding prioritization
-- **Technology**: Weighted scoring algorithm
-- **Function**: Ranks all findings by importance for AI consumption
-- **Execution**: Post-analysis processing
-
-#### 4. OutputGenerator
-- **Purpose**: AI-optimized intelligence file generation
-- **Technology**: Structured markdown + JSON export
-- **Outputs**: 6 intelligence files optimized for Claude Code
-- **Execution**: Final step in analysis pipeline
-
-#### 5. FileWatcher
-- **Purpose**: Real-time change monitoring (optional)
-- **Technology**: Polling-based file system monitoring
-- **Function**: Triggers re-analysis on file changes
-- **Execution**: Only when `brass2 watch` is active
-
-#### 6. CLI Interface
-- **Purpose**: User-friendly command interface
-- **Technology**: Python argparse
-- **Commands**: scan, watch, status, version, report
-- **Execution**: Entry point for all functionality
-
-### Data Flow Architecture
+Data flows **one direction** — scanners produce findings, the ranker orders them,
+the generator serializes them. No component calls upstream; the generator never
+invokes a scanner.
 
 ```
-User Command (brass2 scan)
-↓
-CLI Interface
-↓
-Component Initialization
-├── CodeScanner.scan()
-├── PrivacyScanner.scan() 
-└── → Raw Findings
-↓
-IntelligenceRanker.rank_findings()
-├── Weighted scoring
-├── Priority calculation
-└── → Ranked Findings
-↓
-OutputGenerator.generate_intelligence()
-├── AI_INSTRUCTIONS.md
-├── DETAILED_ANALYSIS.md
-├── SECURITY_REPORT.md
-├── analysis_data.json
-├── STATISTICS.md
-└── FILE_INTELLIGENCE.md
+brasscoders scan <project>
+        │
+        ▼
+  CLI (brass/cli/brass_cli.py) — orchestration, flags, cache-replay
+        │
+        ▼
+  Scanners (brass/scanners/*, each returns List[Finding])
+        │
+        ▼
+  IntelligenceRanker (brass/ranking/intelligence_ranker.py)
+        │  weighted scoring + confidence → ordered findings
+        ▼
+  YAMLOutputGeneratorV2 (brass/output/yaml_output_generator_v2.py)
+        │  + yaml_builders/ (one focused builder per file)
+        │  + redaction_checker.py (credential redaction at the boundary)
+        ▼
+  .brass/*.yaml   (consumed by Claude Code / Cursor / etc.)
 ```
 
-## Use Case Comparison
+### Scanners
 
-### Original BrassCoders Use Cases
-- **Continuous AI Context**: AI assistants always have current project intelligence
-- **Background Monitoring**: Detect issues as they're introduced
-- **Zero-Touch Intelligence**: Developers focus on coding, not analysis
-- **Real-Time Insights**: Intelligence reflects current project state
+Twelve finding-producing scanners run in the pipeline (several are conditional on
+project shape or opt-in flags), each returning `List[Finding]`:
 
-### BrassCoders v2.0 Use Cases
-- **Pre-Commit Analysis**: Run before commits to catch issues
-- **Periodic Project Health**: Schedule analysis runs
-- **Investigation Mode**: Deep-dive analysis when needed
-- **Development Tool Integration**: Part of development workflow
+| Scanner | Responsibility |
+|---|---|
+| `ProfessionalCodeScanner` | Bandit + Pylint + legacy security patterns |
+| `Brass2PrivacyScanner` | PII / privacy detection (with redaction at the source) |
+| `ContentModerationScanner` | Content-policy / safety checks |
+| `JavaScriptTypeScriptScanner` | JS/TS analysis (runs when JS/TS files present) |
+| `PhantomAICodeScanner` | AI-generated-code completeness / hallucinated imports |
+| `BrassPerformanceScanner` | Performance intelligence |
+| `APISecurityScanner` | API-surface security |
+| `AIContextCoherenceScanner` | AI-context coherence |
+| `SecretsScanner` | Hardcoded-secret detection (detect-secrets) |
+| `SemgrepTaintScanner` | Semgrep taint analysis |
+| `AstGrepScanner` | ast-grep structural matches |
+| `PysaTaintScanner` | Pyre/Pysa taint (RAM-aware file-cap guardrail) |
 
-## Integration Patterns
+Two additional scanners support the pipeline rather than emit user findings:
+`FilePrefilterScanner` (file classification / exclusion) and `NoiseReductionScanner`
+(post-scan noise reduction). Adding a scanner follows one fixed pattern — see
+`docs/developer-guide/ADDING_NEW_SCANNERS.md`.
 
-### Original BrassCoders Integration
-```bash
-# One-time setup
-brass init
+### Ranker
 
-# Claude Code automatically gets:
-# - Current security findings
-# - Recent code changes
-# - Active TODOs
-# - Project health metrics
-```
+`IntelligenceRanker` (`brass/ranking/intelligence_ranker.py`) applies weighted
+scoring and confidence assessment to order all findings for AI consumption. Ranking
+only — it neither scans nor serializes. Critical findings are exempt from filters
+that could drop them.
 
-### BrassCoders v2.0 Integration
-```bash
-# Per-session analysis
-brass2 scan
+### Output generator
 
-# Claude Code gets:
-# - Point-in-time analysis
-# - Comprehensive findings
-# - Rich intelligence files
-# - Manual update cycle
-```
+`YAMLOutputGeneratorV2` (`brass/output/yaml_output_generator_v2.py`) orchestrates a
+set of focused builders under `brass/output/yaml_builders/` (one builder per output
+file). Credential redaction is enforced at the serialization boundary
+(`redaction_checker.py`) as defense-in-depth on top of scanner-side redaction.
+(An older `output/output_generator.py` remains in the tree but is not wired into the
+live path.)
 
-## Trade-offs Analysis
+## Output artifacts
 
-### CLI-Induced Advantages
-✅ **Predictable Resource Usage**: Only runs when needed
-✅ **User Control**: Developers choose when to analyze
-✅ **Traditional Workflow**: Fits existing development patterns
-✅ **Debugging Friendly**: Easier to troubleshoot individual runs
-✅ **Simpler Architecture**: No background process management
+A `scan` writes a `.brass/` directory (mode `0700`, YAML files `0600`) inside the
+project root:
 
-### CLI-Induced Disadvantages
-❌ **Manual Intervention**: Requires developer action
-❌ **Stale Intelligence**: AI context can become outdated
-❌ **Workflow Friction**: Additional step in development process
-❌ **Inconsistent Updates**: Intelligence freshness varies
+| File | Contents | Written when |
+|---|---|---|
+| `ai_instructions.yaml` | Top-level summary + guidance for AI consumers | Always |
+| `detailed_analysis.yaml` | Every finding, grouped by type | Always |
+| `file_intelligence.yaml` | Findings collated per file | Always |
+| `security_report.yaml` | Security-only view | Always |
+| `statistics.yaml` | Aggregate metrics | Always |
+| `privacy_analysis.yaml` | Privacy/PII view | Only when PII findings exist |
+| `operator_notes.yaml` | System advisories (scanner skips, degraded state) | Only when there's ≥1 advisory (stale copies deleted) |
+| `brass.log` | Diagnostic log | Always |
 
-### Monitoring-Based Advantages
-✅ **Always Current**: Intelligence reflects real-time state
-✅ **Zero Friction**: No developer action required
-✅ **Proactive Detection**: Issues caught immediately
-✅ **Consistent Updates**: Regular intelligence refresh
-✅ **Seamless AI Context**: Always-fresh context for assistants
+Output is **YAML** — the earlier Markdown/JSON artifacts (`AI_INSTRUCTIONS.md`,
+`analysis_data.json`, …) are gone; a vestigial JSON-summary *read* remains in the CLI
+for backward compatibility but nothing writes it.
 
-### Monitoring-Based Disadvantages
-❌ **Resource Overhead**: Continuous background processing
-❌ **Complexity**: Background agent management
-❌ **Less Predictable**: Analysis timing controlled by system
-❌ **Debugging Challenges**: Background process troubleshooting
+## Historical context (predecessor, retired)
 
-## Future Evolution Path
+The original system was monitoring-based: `brass init` started background agents
+(Scout / Watch / Strategist / Planner) that kept intelligence files continuously
+fresh. That design traded predictability for freshness and carried background-process
+complexity. v2.0 replaced it with the CLI model above. A `watch` subcommand briefly
+offered opt-in file-change re-scanning as a bridge, but it was removed in v2.0.9 as
+broken/unmaintained — the product is now purely on-demand. The full predecessor tree
+is preserved in the `devwatch` archive (see repo-root README).
 
-### Hybrid Architecture Possibility
-Future versions could combine both approaches:
+## Relationship to the architectural principles
 
-```bash
-# Monitoring mode (original)
-brass init --background
+This runtime shape exists to keep the four principles enforceable:
 
-# CLI mode (v2.0)  
-brass2 scan
+- **Single responsibility** — scanners scan, ranker ranks, generator generates.
+- **No lateral/upstream dependencies** — data flows one direction only.
+- **Sacred `Finding` interface** — the one contract every stage shares (see
+  `CLAUDE.md`).
+- **One-direction data flow** — Scanners → Ranker → Generator → `.brass/*.yaml`.
 
-# Hybrid mode (future)
-brass3 auto --with-cli
-```
-
-This would provide:
-- Background monitoring for continuous intelligence
-- CLI commands for on-demand deep analysis
-- User choice of interaction model
-- Best of both architectural approaches
-
-## Conclusion
-
-BrassCoders v2.0's CLI-induced architecture represents a deliberate design choice favoring user control and traditional development workflows over continuous automation. This approach trades the "always current" intelligence of the original system for predictable, user-controlled analysis that fits better into established development practices.
-
-Both architectures serve valid use cases, and the choice between them reflects different philosophies about how AI development intelligence should be integrated into the software development lifecycle.
+Respect them and new capabilities slot in as new scanners/builders without touching
+the rest of the system.

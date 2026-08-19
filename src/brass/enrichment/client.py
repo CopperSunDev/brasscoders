@@ -30,31 +30,32 @@ logger = logging.getLogger(__name__)
 _TRANSIENT_RETRY_COUNT = 1
 _TRANSIENT_RETRY_DELAY_SECONDS = 2.0
 
-# Voyage 429 retry policy. Different code path from transient failures
+# Upstream 429 retry policy. Different code path from transient failures
 # above because the gateway's per-license hourly cap was removed
-# 2026-05-27 — every 429 now is Voyage's actual commercial rate limit
-# (TPM / RPM at their tier).
+# 2026-05-27 — every 429 now is the upstream provider's actual
+# commercial rate limit (TPM / RPM at their tier).
 #
-# Wait math: `max(voyage_retry_after_ms, MIN_WAIT)` capped at MAX_WAIT.
+# Wait math: `max(upstream_retry_after_ms, MIN_WAIT)` capped at MAX_WAIT.
 #
-# Voyage's `retry_after_ms` is a HINT, not a guarantee — it means "you
-# can try again" but doesn't promise the rate-limit window has cleared.
-# The 2026-05-27 coppersun_brass v3 scan saw Voyage return retry-after
-# = 7s; the CLI honored it, retried, and got 429 again because Voyage's
-# TPM is a sliding 60-second window that 7 seconds doesn't clear.
+# The upstream provider's `retry_after_ms` is a HINT, not a guarantee —
+# it means "you can try again" but doesn't promise the rate-limit window
+# has cleared. The 2026-05-27 coppersun_brass v3 scan saw the provider
+# return retry-after = 7s; the CLI honored it, retried, and got 429
+# again because the provider's TPM is a sliding 60-second window that 7
+# seconds doesn't clear.
 #
-# `_VOYAGE_429_MIN_RETRY_WAIT_SECONDS` guarantees a full TPM window
-# elapses before the retry. `_VOYAGE_429_MAX_RETRY_WAIT_SECONDS` caps
+# `_UPSTREAM_429_MIN_RETRY_WAIT_SECONDS` guarantees a full TPM window
+# elapses before the retry. `_UPSTREAM_429_MAX_RETRY_WAIT_SECONDS` caps
 # pathological retry-afters so a single chunk can't hang the scan
-# indefinitely. If Voyage explicitly asks for longer than the max, the
-# CLI falls back to heuristic (real outage territory, not transient
+# indefinitely. If the provider explicitly asks for longer than the max,
+# the CLI falls back to heuristic (real outage territory, not transient
 # rate-limit).
 #
 # When this fires repeatedly in real customer usage, it's a signal to
-# upgrade the Voyage commercial tier; see
-# cli/docs/perf/2026-05-27_voyage_rate_limit_followup.md.
-_VOYAGE_429_MIN_RETRY_WAIT_SECONDS = 60.0
-_VOYAGE_429_MAX_RETRY_WAIT_SECONDS = 120.0
+# upgrade the upstream commercial tier; see the internal upstream-rate-
+# limit calibration notes.
+_UPSTREAM_429_MIN_RETRY_WAIT_SECONDS = 60.0
+_UPSTREAM_429_MAX_RETRY_WAIT_SECONDS = 120.0
 
 
 # Production gateway. Override with BRASS_GATEWAY_URL for staging/dev.
@@ -73,8 +74,8 @@ USER_AGENT = "brasscoders/enrichment-client"
 # sum of `per_finding_cost(f.text)` would exceed this budget. Sized
 # so that even worst-case cold-cache scans complete within the
 # gateway's Vercel `maxDuration=60s` ceiling — the gateway has to
-# embed every uncached text against Voyage, and at 100% cache miss
-# the embed phase dominates per-chunk wall-clock.
+# embed every uncached text against the upstream provider, and at 100%
+# cache miss the embed phase dominates per-chunk wall-clock.
 #
 # Calibration history:
 #   2.5M (initial, 2026-05-27): sized against warm-cache wall-clock
@@ -84,7 +85,7 @@ USER_AGENT = "brasscoders/enrichment-client"
 #   1.5M (2026-05-27 same-day): frankenproject v2 stress scan with
 #     COLD cache (after Upstash cleanup wiped all embed_cache:*)
 #     showed that uncached chunks of ~1000 findings exceeded the
-#     gateway's per-Voyage-call HTTP_TIMEOUT_MS of 30s. Reducing
+#     gateway's per-upstream-call HTTP_TIMEOUT_MS of 30s. Reducing
 #     chunk size by ~40% halves the per-chunk embed work, keeping
 #     cold-cache scans within the 60s function budget. Trade-off:
 #     more sequential POSTs per scan, but each chunk completes
@@ -392,11 +393,12 @@ class EnrichmentClient:
            malformed gateway response) → fixed-delay retry after
            `_TRANSIENT_RETRY_DELAY_SECONDS`.
 
-        2. :class:`EnrichmentRateLimitedError` from Voyage's commercial
-           rate limit (every 429 since 2026-05-27 is Voyage's, not
-           ours — our hourly cap was removed). Honor Voyage's
-           `retry_after_ms` as the wait source-of-truth, capped at
-           `_VOYAGE_429_MAX_RETRY_WAIT_SECONDS` so a pathological
+        2. :class:`EnrichmentRateLimitedError` from the upstream
+           provider's commercial rate limit (every 429 since 2026-05-27
+           is the provider's, not ours — our hourly cap was removed).
+           Honor the provider's `retry_after_ms` as the wait
+           source-of-truth, capped at
+           `_UPSTREAM_429_MAX_RETRY_WAIT_SECONDS` so a pathological
            retry-after can't block the scan indefinitely.
 
         Does NOT retry: quota-exhausted (402), license-rejected
@@ -426,8 +428,8 @@ class EnrichmentClient:
                 )
                 time.sleep(_TRANSIENT_RETRY_DELAY_SECONDS)
             except EnrichmentRateLimitedError as exc:
-                # Voyage 429. Wait `max(voyage_retry_after, MIN_WAIT)`
-                # so the full sliding TPM window elapses (Voyage's
+                # Upstream 429. Wait `max(upstream_retry_after, MIN_WAIT)`
+                # so the full sliding TPM window elapses (the provider's
                 # retry-after is a hint that doesn't guarantee the
                 # window has cleared — observed 2026-05-27). Cap at
                 # MAX_WAIT so a pathological retry-after doesn't hang
@@ -437,27 +439,27 @@ class EnrichmentClient:
                 # enrichment).
                 if attempt >= _TRANSIENT_RETRY_COUNT:
                     raise
-                voyage_wait_seconds = exc.retry_after_ms / 1000.0
-                if voyage_wait_seconds > _VOYAGE_429_MAX_RETRY_WAIT_SECONDS:
+                upstream_wait_seconds = exc.retry_after_ms / 1000.0
+                if upstream_wait_seconds > _UPSTREAM_429_MAX_RETRY_WAIT_SECONDS:
                     logger.info(
-                        "voyage rate limit retry-after %.1fs exceeds cap "
+                        "upstream rate limit retry-after %.1fs exceeds cap "
                         "%.1fs; falling back to heuristic",
-                        voyage_wait_seconds,
-                        _VOYAGE_429_MAX_RETRY_WAIT_SECONDS,
+                        upstream_wait_seconds,
+                        _UPSTREAM_429_MAX_RETRY_WAIT_SECONDS,
                     )
                     raise
-                # Use the longer of Voyage's hint and our minimum
-                # window-clear wait — but never below voyage's number
-                # if voyage asks for MORE than our minimum.
+                # Use the longer of the provider's hint and our minimum
+                # window-clear wait — but never below the provider's
+                # number if the provider asks for MORE than our minimum.
                 wait_seconds = max(
-                    voyage_wait_seconds,
-                    _VOYAGE_429_MIN_RETRY_WAIT_SECONDS,
+                    upstream_wait_seconds,
+                    _UPSTREAM_429_MIN_RETRY_WAIT_SECONDS,
                 )
                 attempt += 1
                 logger.info(
-                    "voyage rate limit (retry-after %.1fs); waiting %.1fs "
+                    "upstream rate limit (retry-after %.1fs); waiting %.1fs "
                     "to clear TPM window, retry %d/%d",
-                    voyage_wait_seconds, wait_seconds,
+                    upstream_wait_seconds, wait_seconds,
                     attempt, _TRANSIENT_RETRY_COUNT,
                 )
                 time.sleep(wait_seconds)
@@ -557,7 +559,7 @@ class EnrichmentClient:
             )
         if code in (502, 503, 504):
             # Include the gateway's error slug + message so operators can
-            # tell "voyage_unavailable" (upstream issue) from generic
+            # tell "upstream_unavailable" (upstream issue) from generic
             # platform 502/504 (Vercel infra blip). Also include the
             # upstream HTTP status if the gateway surfaced one — tells
             # us whether the upstream returned 4xx (likely config /

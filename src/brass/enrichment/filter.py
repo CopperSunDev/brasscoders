@@ -96,11 +96,10 @@ def apply_enrichment(
     # Stage 3: call gateway.
     result: EnrichResult = client.enrich(payload, raw_files)
 
-    # Optional debug dump — set BRASS_DEBUG_ENRICHMENT=1 (or the legacy
-    # BRASS_DEBUG_VOYAGE=1 alias) to write the gateway response to
-    # .brass/_enrichment_clusters.json for external auditing of
-    # clustering decisions.
-    if os.environ.get("BRASS_DEBUG_ENRICHMENT") == "1" or os.environ.get("BRASS_DEBUG_VOYAGE") == "1":
+    # Optional debug dump — set BRASS_DEBUG_ENRICHMENT=1 to write the
+    # gateway response to .brass/_enrichment_clusters.json for external
+    # auditing of clustering decisions.
+    if os.environ.get("BRASS_DEBUG_ENRICHMENT") == "1":
         _dump_debug(findings, result, project_path)
 
     # Stage 4: map gateway response back to Finding objects. The

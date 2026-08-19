@@ -1,9 +1,8 @@
 """Unit tests for `brass.enrichment._token_budget`.
 
 Pins the contract between the CLI's chunker and the gateway's
-single-source-of-truth token estimator (`gateway/lib/voyage.ts:
-estimateChunkTokens`). If either side's formula drifts, these tests
-catch it.
+single-source-of-truth token estimator. If either side's formula
+drifts, these tests catch it.
 """
 
 from __future__ import annotations
@@ -42,8 +41,9 @@ def test_estimate_text_tokens_empty_string():
 
 def test_estimate_text_tokens_counts_utf16_units_not_code_points():
     """Non-BMP characters (emoji, supplementary CJK) take TWO UTF-16
-    code units each. The gateway's Zod schema and Voyage's tokenizer
-    both measure UTF-16, not Python code points — the CLI must match.
+    code units each. The gateway's Zod schema and the upstream
+    provider's tokenizer both measure UTF-16, not Python code points —
+    the CLI must match.
 
     Fixture: 5 distinct non-BMP code points = 10 UTF-16 units = 5 tokens.
     """

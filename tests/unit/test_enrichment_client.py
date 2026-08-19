@@ -554,21 +554,22 @@ def test_enrich_gives_up_after_one_retry_on_persistent_503():
     assert sleep.call_count == 1
 
 
-def test_enrich_voyage_429_waits_full_tpm_window_when_hint_is_short():
-    """Voyage's `retry_after_ms` is a HINT, not a guarantee — observed
-    2026-05-27 coppersun_brass v3 scan: Voyage returned retry-after=7s,
-    the CLI honored it, retried, got 429 again because Voyage's TPM is
-    a sliding 60s window that 7 seconds doesn't clear.
+def test_enrich_upstream_429_waits_full_tpm_window_when_hint_is_short():
+    """The upstream provider's `retry_after_ms` is a HINT, not a
+    guarantee — observed 2026-05-27 coppersun_brass v3 scan: the
+    provider returned retry-after=7s, the CLI honored it, retried, got
+    429 again because the provider's TPM is a sliding 60s window that 7
+    seconds doesn't clear.
 
-    Fix: wait `max(voyage_hint, MIN_WAIT)` so the full TPM window
+    Fix: wait `max(upstream_hint, MIN_WAIT)` so the full TPM window
     elapses before the retry attempt.
     """
-    from brass.enrichment.client import _VOYAGE_429_MIN_RETRY_WAIT_SECONDS
+    from brass.enrichment.client import _UPSTREAM_429_MIN_RETRY_WAIT_SECONDS
 
     with patch("brass.enrichment.client.time.sleep") as sleep, \
             patch("brass.enrichment.client.requests.post") as post:
         post.side_effect = [
-            # Voyage's hint is 7s (short — wouldn't clear a 60s TPM window).
+            # Provider's hint is 7s (short — wouldn't clear a 60s TPM window).
             _mock_response(429, {"error": "rate_limited", "retry_after_ms": 7_000}),
             _mock_response(200, _OK_ENRICH_BODY),
         ]
@@ -577,15 +578,15 @@ def test_enrich_voyage_429_waits_full_tpm_window_when_hint_is_short():
         )
     assert post.call_count == 2  # 1 attempt + 1 retry
     assert sleep.call_count == 1
-    # We waited the MINIMUM (60s) — not Voyage's hint (7s).
-    sleep.assert_called_with(_VOYAGE_429_MIN_RETRY_WAIT_SECONDS)
+    # We waited the MINIMUM (60s) — not the provider's hint (7s).
+    sleep.assert_called_with(_UPSTREAM_429_MIN_RETRY_WAIT_SECONDS)
     assert result.tokens_used == 1234
 
 
-def test_enrich_voyage_429_honors_longer_hint_above_minimum():
-    """When Voyage asks for MORE than our minimum wait (e.g. 90s),
-    we honor Voyage's longer instruction — they're telling us
-    something specific about their internal state."""
+def test_enrich_upstream_429_honors_longer_hint_above_minimum():
+    """When the upstream provider asks for MORE than our minimum wait
+    (e.g. 90s), we honor the provider's longer instruction — they're
+    telling us something specific about their internal state."""
     with patch("brass.enrichment.client.time.sleep") as sleep, \
             patch("brass.enrichment.client.requests.post") as post:
         post.side_effect = [
@@ -597,19 +598,18 @@ def test_enrich_voyage_429_honors_longer_hint_above_minimum():
         )
     assert post.call_count == 2
     assert sleep.call_count == 1
-    sleep.assert_called_with(90.0)  # honored Voyage's longer hint
+    sleep.assert_called_with(90.0)  # honored the provider's longer hint
     assert result.tokens_used == 1234
 
 
-def test_enrich_does_not_retry_on_voyage_429_when_retry_after_exceeds_cap():
-    """If Voyage's `retry_after_ms` is longer than the CLI's max wait
-    cap, don't block the scan — re-raise immediately so the caller
-    falls back to heuristic for the entire scan.
+def test_enrich_does_not_retry_on_upstream_429_when_retry_after_exceeds_cap():
+    """If the upstream provider's `retry_after_ms` is longer than the
+    CLI's max wait cap, don't block the scan — re-raise immediately so
+    the caller falls back to heuristic for the entire scan.
 
     A 120s+ retry-after suggests deeper rate-limit pressure (likely
-    needs commercial tier upgrade per
-    cli/docs/perf/2026-05-27_voyage_rate_limit_followup.md), not
-    something a single longer wait can fix.
+    needs an upstream commercial tier upgrade), not something a single
+    longer wait can fix.
     """
     from brass.enrichment import EnrichmentRateLimitedError
 
@@ -624,12 +624,12 @@ def test_enrich_does_not_retry_on_voyage_429_when_retry_after_exceeds_cap():
     assert sleep.call_count == 0  # never slept
 
 
-def test_enrich_propagates_after_voyage_429_retry_also_fails():
+def test_enrich_propagates_after_upstream_429_retry_also_fails():
     """If the retry itself 429s, give up — the all-or-nothing
     fallback contract means a second retry would just delay the
     inevitable heuristic-fallback by another N seconds."""
     from brass.enrichment import EnrichmentRateLimitedError
-    from brass.enrichment.client import _VOYAGE_429_MIN_RETRY_WAIT_SECONDS
+    from brass.enrichment.client import _UPSTREAM_429_MIN_RETRY_WAIT_SECONDS
 
     with patch("brass.enrichment.client.time.sleep") as sleep, \
             patch("brass.enrichment.client.requests.post") as post:
@@ -640,7 +640,7 @@ def test_enrich_propagates_after_voyage_429_retry_also_fails():
             _client().enrich(findings=[("f0", "x")], raw_files={"readme": "s"})
     assert post.call_count == 2  # 1 attempt + 1 retry, both 429
     assert sleep.call_count == 1  # slept once before retry
-    sleep.assert_called_with(_VOYAGE_429_MIN_RETRY_WAIT_SECONDS)
+    sleep.assert_called_with(_UPSTREAM_429_MIN_RETRY_WAIT_SECONDS)
 
 
 def test_enrich_does_not_retry_on_402_quota_exhausted():

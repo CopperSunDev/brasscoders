@@ -10,9 +10,9 @@ so that no single chunk exceeds the gateway's per-request capacity OR
 saturates the customer's hourly token budget.
 
 This module mirrors the gateway's single source of truth — the
-chars/2 estimator in `gateway/lib/voyage.ts:estimateChunkTokens` — so
-the CLI's chunking math agrees with the gateway's billing math. If the
-gateway's estimator changes, this file MUST change in lockstep.
+chars/2 estimator in the gateway's token estimator — so the CLI's
+chunking math agrees with the gateway's billing math. If the gateway's
+estimator changes, this file MUST change in lockstep.
 
 Why a separate module from `_wire_clamp.py`? UTF-16 clamping is about
 wire-format correctness (Zod's `z.string().max(N)` measures code
@@ -43,21 +43,22 @@ MAX_SIGNATURE_TOKENS_WORST_CASE = 3750
 
 
 def estimate_text_tokens(text: str) -> int:
-    """Estimate the Voyage token count for a single text.
+    """Estimate the upstream provider's token count for a single text.
 
-    Mirrors `gateway/lib/voyage.ts:estimateChunkTokens` exactly:
-    UTF-16 code-unit length // 2 (with ceiling for odd lengths).
+    Mirrors the gateway's token estimator exactly: UTF-16 code-unit
+    length // 2 (with ceiling for odd lengths).
 
     Calibrated against the 2026-05-25 whisperx-production scan:
     real:estimate ratio ≈ 1.2-1.4x (estimator under-counts by ~25%).
     Compensated server-side via `RERANK_BATCH_MAX_TOKENS` and
-    `EMBED_BATCH_MAX_TOKENS` sized at ~60% of Voyage's hard caps.
+    `EMBED_BATCH_MAX_TOKENS` sized at ~60% of the upstream provider's
+    hard caps.
 
     Counts UTF-16 units rather than Python code points because the
     gateway's Zod schema validates `z.string().max(N)` in UTF-16 units
-    — and Voyage's tokenizer behavior is closer to chars/2 of the
-    UTF-16 representation than the code-point count for non-BMP text
-    (CJK, emoji).
+    — and the upstream provider's tokenizer behavior is closer to
+    chars/2 of the UTF-16 representation than the code-point count for
+    non-BMP text (CJK, emoji).
     """
     utf16_units = 0
     for c in text:

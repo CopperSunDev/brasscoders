@@ -2,7 +2,7 @@
 
 Covers the extracted `compute_cross_scanner_overlap` function and
 the `stash_overlap_on_metadata` helper used by the CLI to pre-stash
-peer lists on finding metadata before Voyage enrichment runs.
+peer lists on finding metadata before upstream enrichment runs.
 
 Phase F architectural fix (2026-05-16).
 """

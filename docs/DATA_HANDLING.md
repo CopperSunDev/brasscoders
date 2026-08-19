@@ -185,7 +185,7 @@ between requests.
 
 | Key pattern | Value | TTL | Customer-derived? |
 |---|---|---|---|
-| `embed_cache:voyage-code-3:512:<sha256(finding_text)>` | `{ vector: number[512], dim, model }` | 7 days | Vector is one-way derived from finding text. Key is sha256 — original text is **not** recoverable from key or value. Vectors enable similarity comparison but not text reconstruction. |
+| `embed_cache:<embedding-model>:512:<sha256(finding_text)>` | `{ vector: number[512], dim, model }` | 7 days | Vector is one-way derived from finding text. Key is sha256 — original text is **not** recoverable from key or value. Vectors enable similarity comparison but not text reconstruction. |
 | `license_cache:<sha256(license_key + instance_id)>` | `{ valid, status, expires_at, customer_email, product_name }` | 15 seconds | Contains your email address. ~5 entries deep at any time given the 15-second window. |
 | `quota:<sha256(license_key)>` | `{ monthly_remaining, topup_remaining, period_start, period_end, total_used_lifetime }` | Persistent (per-license) | License key hash + token counters. No PII beyond what LemonSqueezy already has. |
 | `revoked:<sha256(license_key)>` | `true` | Persistent until cleared by webhook (or set with TTL on grace periods, but we currently use permanent) | Set by LS webhook on `subscription_expired` / `subscription_payment_failed` / subscription-`order_refunded`. Short-circuits future `validateLicense` calls without hitting LS, so revocations propagate within webhook-delivery latency (seconds) instead of waiting up to the 15s `license_cache` TTL. |
@@ -217,11 +217,11 @@ rest; 7-day retention on free tier, 30 days on Pro):
 - **`[cache] pipeline.set failed at index ...`** — cache write failures.
   No finding content; only the failed index + Redis error.
 - **`[enrich] upstream error: <e.message>, <e.status>`** — only on
-  Voyage API failures.
+  embedding/rerank provider API failures.
 
-  **Caveat**: Voyage's error messages occasionally include partial
+  **Caveat**: the provider's error messages occasionally include partial
   echo of the failing input (e.g., for "input too long" errors). In
-  the rare case a Voyage call fails on a long finding-text input, a
+  the rare case a provider call fails on a long finding-text input, a
   short snippet of that text could land in Vercel's logs. Not
   customer-visible, but disclosed here for completeness.
 
@@ -241,7 +241,7 @@ Third-party services that touch customer data during normal operation:
 
 | Subprocessor | What they see | Their stance |
 |---|---|---|
-| **Voyage AI** (embedding + rerank) | Finding text (privacy-redacted before transmission) + project signature, during the embed and rerank API calls. Per-token billing. | Public commitment: "zero data retention" — API calls are not used for training. Verify their current TOS for the latest commitment. |
+| **Code-embedding & reranking provider** | Finding text (privacy-redacted before transmission) + project signature, during the embed and rerank API calls. Per-token billing. | Public commitment: "zero data retention" — API calls are not used for training. We verify the provider's current TOS for the latest commitment. |
 | **Vercel** (gateway hosting + edge network) | All HTTPS traffic transits Vercel infrastructure. Logs request metadata, error logs (see "What we log" above). | SOC 2 Type II certified. Logs encrypted at rest. Default region: US-East. |
 | **Upstash** (Redis backend) | All Redis reads/writes for embedding cache, license cache, quota state, rate limits. | SOC 2 Type II certified. Data encrypted at rest. |
 | **LemonSqueezy** (license issuance + payment) | License keys, customer email, purchase records, activation metadata. **Does not see findings or code.** | SOC 2 Type II certified. They own the customer-payment relationship and tax compliance. |
@@ -279,9 +279,9 @@ state mutations even with knowledge of the webhook URL.
 
 ## What we DO NOT do
 
-- ❌ **Train on customer code.** Voyage's zero-data-retention commitment
-  applies; we do not retain, mine, or train any model on customer
-  findings or source.
+- ❌ **Train on customer code.** Our embedding/rerank provider's
+  zero-data-retention commitment applies; we do not retain, mine, or
+  train any model on customer findings or source.
 - ❌ **Share customer code with anyone outside the subprocessor list
   above.** No analytics SDKs, no error trackers that capture request
   bodies, no third-party CDN that sees finding content.

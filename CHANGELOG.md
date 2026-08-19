@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 _No unreleased changes._
 
+## [2.0.11] — 2026-08-18
+
+Internal maintenance release. Comment and terminology cleanup in the
+enrichment client and token-budget estimator, and error-response status
+slugs renamed for clarity (`*_unavailable` / `*_upstream_error`). Also
+realigns `__version__` with the packaged version. No changes to
+scanning, findings, ranking, or YAML output.
+
 ## [2.0.10] — 2026-06-29
 
 Metadata-only release. Corrects the PyPI `Operating System` trove
@@ -358,7 +366,8 @@ Initial public-launch release.
 - Default-offline. No telemetry. No outbound network calls except the
   opt-in package-hallucination check.
 
-[Unreleased]: https://github.com/CopperSunDev/brass-intelligence/compare/v2.0.4...HEAD
+[Unreleased]: https://github.com/CopperSunDev/brass-intelligence/compare/v2.0.11...HEAD
+[2.0.11]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.11
 [2.0.4]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.4
 [2.0.3]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.3
 [2.0.2]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.2
