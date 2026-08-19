@@ -92,6 +92,18 @@ class TestProfessionalCodeScanner(unittest.TestCase):
         status['new_key'] = 'value'
         self.assertNotIn('new_key', self.scanner._tool_status)
 
+    def test_severity_to_impact_score_mapping(self):
+        """The severity->impact_score map (used by Bandit/Pylint/legacy findings)
+        covers every severity and defaults to 0.5 for anything unmapped."""
+        from brass.scanners.professional_code_scanner import _severity_to_impact_score
+        self.assertEqual(_severity_to_impact_score(Severity.CRITICAL), 0.9)
+        self.assertEqual(_severity_to_impact_score(Severity.HIGH), 0.8)
+        self.assertEqual(_severity_to_impact_score(Severity.MEDIUM), 0.6)
+        self.assertEqual(_severity_to_impact_score(Severity.LOW), 0.4)
+        self.assertEqual(_severity_to_impact_score(Severity.INFO), 0.2)
+        # Unmapped input -> neutral 0.5 (mirrors api_security_scanner)
+        self.assertEqual(_severity_to_impact_score(None), 0.5)
+
 
 class TestBanditIntegration(unittest.TestCase):
     """Test BanditIntegration class."""
@@ -180,6 +192,7 @@ class TestBanditIntegration(unittest.TestCase):
             finding = result.findings[0]
             self.assertEqual(finding.type, FindingType.SECURITY)
             self.assertEqual(finding.severity, Severity.CRITICAL)  # HIGH maps to CRITICAL
+            self.assertEqual(finding.impact_score, 0.9)  # CRITICAL -> 0.9 (was 0.0 pre-fix)
             self.assertEqual(finding.line_number, 5)
             self.assertEqual(finding.detected_by, "bandit")
         finally:
@@ -284,6 +297,7 @@ class TestPylintIntegration(unittest.TestCase):
             finding = result.findings[0]
             self.assertEqual(finding.type, FindingType.CODE_QUALITY)
             self.assertEqual(finding.severity, Severity.LOW)  # convention maps to LOW
+            self.assertEqual(finding.impact_score, 0.4)  # LOW -> 0.4 (was 0.0 pre-fix)
             self.assertEqual(finding.line_number, 1)
             self.assertEqual(finding.detected_by, "pylint")
         finally:
@@ -325,15 +339,18 @@ def example():
         todo_finding = next(f for f in findings if 'TODO' in f.title)
         self.assertEqual(todo_finding.type, FindingType.TODO)
         self.assertEqual(todo_finding.severity, Severity.LOW)
+        self.assertEqual(todo_finding.impact_score, 0.4)  # LOW -> 0.4 (was 0.0 pre-fix)
         self.assertEqual(todo_finding.line_number, 2)
-        
+
         # Check FIXME finding
         fixme_finding = next(f for f in findings if 'FIXME' in f.title)
         self.assertEqual(fixme_finding.severity, Severity.HIGH)
-        
+        self.assertEqual(fixme_finding.impact_score, 0.8)  # HIGH -> 0.8
+
         # Check HACK finding
         hack_finding = next(f for f in findings if 'HACK' in f.title)
         self.assertEqual(hack_finding.severity, Severity.HIGH)
+        self.assertEqual(hack_finding.impact_score, 0.8)  # HIGH -> 0.8
     
     def test_analyze_file_no_patterns(self):
         """Test analysis with no TODO patterns."""

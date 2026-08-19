@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 _No unreleased changes._
 
+## [2.0.12] — 2026-08-19
+
+Ranking fix. Bandit, Pylint, and legacy-TODO findings now carry a
+severity-derived `impact_score`, so the security and code-quality
+findings from the primary scanner rank correctly. Previously these
+findings left `impact_score` at the `0.0` default and contributed
+nothing to the ranker's impact term, which systematically under-ranked
+them relative to findings from other scanners. No change to which
+findings are reported or to the output schema — only their priority
+ordering. Ordering remains severity-primary, so shifts are within
+severity tiers.
+
 ## [2.0.11] — 2026-08-18
 
 Internal maintenance release. Comment and terminology cleanup in the
@@ -366,7 +378,8 @@ Initial public-launch release.
 - Default-offline. No telemetry. No outbound network calls except the
   opt-in package-hallucination check.
 
-[Unreleased]: https://github.com/CopperSunDev/brass-intelligence/compare/v2.0.11...HEAD
+[Unreleased]: https://github.com/CopperSunDev/brass-intelligence/compare/v2.0.12...HEAD
+[2.0.12]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.12
 [2.0.11]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.11
 [2.0.4]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.4
 [2.0.3]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.3

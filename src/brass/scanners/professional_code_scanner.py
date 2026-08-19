@@ -72,6 +72,25 @@ from ..core.file_integrity import FileIntegrityChecker
 logger = get_logger(__name__)
 
 
+def _severity_to_impact_score(severity: Severity) -> float:
+    """Map severity -> impact_score (0.0-1.0).
+
+    Mirrors api_security_scanner's scheme so Bandit/Pylint/legacy findings
+    contribute to the ranker's impact term (weight 0.15) instead of the
+    dataclass default 0.0, which systematically under-ranked them. Defined
+    locally rather than importing api_security_refactored.utils.SeverityMapper
+    — that would be a scanner->scanner lateral dependency, which this module
+    forbids (see header + cli/CLAUDE.md).
+    """
+    return {
+        Severity.CRITICAL: 0.9,
+        Severity.HIGH: 0.8,
+        Severity.MEDIUM: 0.6,
+        Severity.LOW: 0.4,
+        Severity.INFO: 0.2,
+    }.get(severity, 0.5)
+
+
 def _analyze_file_subprocess(file_path: str) -> List[Finding]:
     """
     Process-safe per-file analysis function. Kept as a fallback for the
@@ -383,6 +402,7 @@ class BanditIntegration:
                 id=finding_id,
                 type=FindingType.SECURITY,
                 severity=severity,
+                impact_score=_severity_to_impact_score(severity),
                 file_path=result_file,
                 line_number=line_number,
                 title=result.get('issue_text', 'Security Issue'),
@@ -702,6 +722,7 @@ class PylintIntegration:
                 id=finding_id,
                 type=FindingType.CODE_QUALITY,
                 severity=severity,
+                impact_score=_severity_to_impact_score(severity),
                 file_path=result_file,
                 line_number=line_number,
                 title=f"{result.get('symbol', 'Code Quality Issue')}",
@@ -955,6 +976,7 @@ class LegacyPatternScanner:
                         id=f"legacy_todo_{pattern.lower()}_{line_num}",
                         type=FindingType.TODO,
                         severity=severity,
+                        impact_score=_severity_to_impact_score(severity),
                         file_path=file_path,
                         line_number=line_num,
                         title=f"{pattern} Comment",

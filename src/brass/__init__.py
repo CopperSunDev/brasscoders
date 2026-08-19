@@ -5,5 +5,5 @@ Revolutionary architecture for providing fantastic intelligence to Claude Code
 and other AI assistants.
 """
 
-__version__ = "2.0.11"
+__version__ = "2.0.12"
 __author__ = "Copper Sun Brass Team"
