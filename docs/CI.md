@@ -66,6 +66,23 @@ jobs:
 - **Autofetch failure mode is also silent.** If the runner can't reach `github.com` (network-restricted, GitHub outage, `git` missing from the image) the clone fails, Pysa skips, and the scan completes with no taint findings — no signal in the build status. For network-restricted runners, pre-populate `~/.cache/brass/typeshed/` as a build step instead and leave `BRASS_AUTOFETCH_TYPESHED` unset.
 - **`--offline`** stays on. The autofetch is the one network call BrassCoders makes; everything else stays local.
 
+### Publishing findings as an artifact
+
+Upload `.brass/` so reviewers can open `ai_instructions.yaml` straight from the Actions run — deterministic, automatic, on every PR, with nothing sent to any API:
+
+```yaml
+      - name: Run BrassCoders
+        run: brasscoders --offline scan . || true   # advisory; the artifact is the deliverable
+
+      - name: Upload BrassCoders findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brasscoders-scan-${{ github.sha }}
+          path: .brass/
+          retention-days: 14
+```
+
 ### Verifying the speedup
 
 Run the workflow twice on the same branch. The second run should show Pysa taking 3–10s instead of 30–40s. The exact numbers are in `.brass/scanner_timings.json` (in the workspace) — surface it with an extra step if you want it in the Actions log:
