@@ -302,7 +302,14 @@ class BrassCLI:
             action='store_true',
             help='🏆 Complete performance analysis with validation and benchmarking'
         )
-        
+        scan_parser.add_argument(
+            '--fail-on-critical',
+            action='store_true',
+            help='Exit with a non-zero status (2) when any critical- or high-severity '
+                 'finding is present. Use in CI or a pre-commit hook to fail the build '
+                 'on findings. Default is exit 0 regardless of findings.'
+        )
+
         # Legacy options (hidden from help but still functional)
         scan_parser.add_argument(
             '--code-only',
@@ -1893,6 +1900,21 @@ class BrassCLI:
             # Telemetry must never bubble into the CLI's normal flow.
             pass
 
+        return self._scan_exit_code(args, ranked_findings)
+
+    def _scan_exit_code(self, args, ranked_findings) -> int:
+        """Exit code for a completed scan.
+
+        Returns 0 normally. Returns 2 when ``--fail-on-critical`` is set and at
+        least one critical- or high-severity finding (``Finding.is_critical()``)
+        is present, so a CI step or pre-commit hook fails the build
+        deterministically. Default behavior (no flag) stays exit 0 for
+        backward compatibility.
+        """
+        if getattr(args, 'fail_on_critical', False) and any(
+            f.is_critical() for f in ranked_findings
+        ):
+            return 2
         return 0
 
     def _translate_user_friendly_flags(self, args) -> None:

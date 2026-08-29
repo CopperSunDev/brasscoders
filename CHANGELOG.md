@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 _No unreleased changes._
 
+## [2.0.13] — 2026-08-29
+
+Adds a `--fail-on-critical` flag to `brasscoders scan`. With the flag, the scan
+exits with a non-zero status (exit code 2) when any critical- or high-severity
+finding is present, so a CI step or a pre-commit hook fails the build
+deterministically. Without the flag, `scan` exits 0 as before — the default is
+unchanged and non-breaking. Previously the scan always exited 0, so gating a
+build on critical findings required a wrapper that read `statistics.yaml`; the
+flag makes the gate a first-class exit code.
+
 ## [2.0.12] — 2026-08-19
 
 Ranking fix. Bandit, Pylint, and legacy-TODO findings now carry a
@@ -378,7 +388,8 @@ Initial public-launch release.
 - Default-offline. No telemetry. No outbound network calls except the
   opt-in package-hallucination check.
 
-[Unreleased]: https://github.com/CopperSunDev/brass-intelligence/compare/v2.0.12...HEAD
+[Unreleased]: https://github.com/CopperSunDev/brass-intelligence/compare/v2.0.13...HEAD
+[2.0.13]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.13
 [2.0.12]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.12
 [2.0.11]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.11
 [2.0.4]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.4
