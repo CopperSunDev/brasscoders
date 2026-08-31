@@ -388,12 +388,12 @@ Initial public-launch release.
 - Default-offline. No telemetry. No outbound network calls except the
   opt-in package-hallucination check.
 
-[Unreleased]: https://github.com/CopperSunDev/brass-intelligence/compare/v2.0.13...HEAD
-[2.0.13]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.13
-[2.0.12]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.12
-[2.0.11]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.11
-[2.0.4]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.4
-[2.0.3]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.3
-[2.0.2]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.2
-[2.0.1]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.1
-[2.0.0]: https://github.com/CopperSunDev/brass-intelligence/releases/tag/v2.0.0
+[Unreleased]: https://github.com/CopperSunDev/brasscoders/commits/main
+[2.0.13]: https://pypi.org/project/brasscoders/2.0.13/
+[2.0.12]: https://pypi.org/project/brasscoders/2.0.12/
+[2.0.11]: https://pypi.org/project/brasscoders/2.0.11/
+[2.0.4]: https://pypi.org/project/brasscoders/2.0.4/
+[2.0.3]: https://pypi.org/project/brasscoders/
+[2.0.2]: https://pypi.org/project/brasscoders/
+[2.0.1]: https://pypi.org/project/brasscoders/
+[2.0.0]: https://pypi.org/project/brasscoders/

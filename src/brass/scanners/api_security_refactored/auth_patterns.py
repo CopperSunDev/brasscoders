@@ -34,7 +34,7 @@ class AuthPatternMatcher:
             'description': "Hardcoded secret or API key detected in source code. This is a critical security vulnerability that exposes sensitive credentials.",
             'remediation': "Move secrets to environment variables or secure configuration. Use tools like python-decouple or similar.",
             'references': [
-                "https://owasp.org/www-community/vulnerabilities/Use_of_hard-coded_credentials",
+                "https://owasp.org/www-community/vulnerabilities/Use_of_hard-coded_password",
                 "https://cwe.mitre.org/data/definitions/798.html"
             ]
         },

@@ -137,7 +137,7 @@ class HallucinationFindingCreator:
         )
         
         references = [
-            "https://owasp.org/www-community/attacks/Supply_Chain_Attack",
+            "https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/",
             "https://snyk.io/blog/typosquatting-attacks/"
         ]
         

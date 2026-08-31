@@ -233,7 +233,7 @@ class PackageHallucinationDetector:
             remediation=f"Verify that '{package_name}' is the correct package name. "
                        f"Check for typos or use an alternative package that exists.",
             references=[
-                "https://owasp.org/www-community/attacks/Supply_Chain_Attack",
+                "https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/",
                 "https://snyk.io/blog/typosquatting-attacks/"
             ],
             metadata={
@@ -477,7 +477,7 @@ class AIAuthPatternAnalyzer:
         """Get reference links for pattern type."""
         references_map = {
             'hardcoded_secrets': [
-                "https://owasp.org/www-community/vulnerabilities/Use_of_hard-coded_credentials",
+                "https://owasp.org/www-community/vulnerabilities/Use_of_hard-coded_password",
                 "https://cwe.mitre.org/data/definitions/798.html"
             ],
             'weak_jwt': [
