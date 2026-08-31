@@ -1,0 +1,27 @@
+# Ready-made BrassCoders CI workflow. Copy this into your own repository at
+# .github/workflows/brasscoders-scan.yml — GitHub picks it up automatically.
+# Docs: https://coppersun.dev/blog/add-brasscoders-to-github-actions/
+name: BrassCoders Scan
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  brasscoders:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install BrassCoders
+        run: pip install brasscoders
+      - name: Run BrassCoders scan
+        run: brasscoders --offline scan --fail-on-critical .
+      - name: Upload .brass artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: brasscoders-findings
+          path: .brass/
