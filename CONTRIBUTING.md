@@ -1,13 +1,13 @@
 # Contributing to BrassCoders
 
-BrassCoders is an MIT-licensed open-source CLI. Contributions are welcome.
+BrassCoders is an Apache 2.0-licensed open-source CLI. Contributions are welcome.
 This file is short on purpose: read it once, then go look at the code.
 
 ## Quick start
 
 ```bash
-git clone https://github.com/coppersun/brass.git
-cd brass/new_brass_system
+git clone https://github.com/CopperSunDev/brasscoders.git
+cd brasscoders
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
