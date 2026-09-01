@@ -46,6 +46,28 @@ from brass.core.scanner_status import ScannerStatus
 
 logger = get_logger(__name__)
 
+# Exit code for a CLI usage error (bad/unrecognized arguments), per the
+# sysexits.h EX_USAGE convention. argparse's own ArgumentParser.error()
+# defaults to sys.exit(2) — but 2 is also --fail-on-critical's documented
+# exit code for "a critical/high finding was found." Left un-overridden,
+# a CI script branching on `$? -eq 2` to detect "critical findings present"
+# would misfire on an unrelated CLI typo (e.g. a misspelled flag), which
+# defeats the point of a deterministic gate. This subclass is paired with
+# _scan_exit_code's `return 2` below — if either exit code changes, check
+# the other and the CI-gate docs on coppersun.dev for the same collision.
+EX_USAGE = 64
+
+
+class _BrassArgumentParser(argparse.ArgumentParser):
+    """ArgumentParser that exits usage errors with EX_USAGE (64) instead of
+    argparse's default 2, so it never collides with --fail-on-critical's
+    exit code. Subparsers created via add_subparsers() inherit this class
+    automatically (argparse defaults parser_class to type(self))."""
+
+    def error(self, message):
+        self.print_usage(sys.stderr)
+        self.exit(EX_USAGE, f"{self.prog}: error: {message}\n")
+
 
 class BrassCLI:
     """
@@ -147,7 +169,7 @@ class BrassCLI:
     
     def _create_parser(self) -> argparse.ArgumentParser:
         """Create command-line argument parser."""
-        parser = argparse.ArgumentParser(
+        parser = _BrassArgumentParser(
             prog='brasscoders',
             description='🎺 BrassCoders for AI Coders v2.0 - Revolutionary AI Development Intelligence',
             formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -307,7 +329,9 @@ class BrassCLI:
             action='store_true',
             help='Exit with a non-zero status (2) when any critical- or high-severity '
                  'finding is present. Use in CI or a pre-commit hook to fail the build '
-                 'on findings. Default is exit 0 regardless of findings.'
+                 'on findings. Default is exit 0 regardless of findings. Findings removed '
+                 'by other filters (e.g. --dev) are not counted, since this checks the '
+                 'findings actually reported, not the pre-filter total.'
         )
 
         # Legacy options (hidden from help but still functional)

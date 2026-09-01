@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 _No unreleased changes._
 
+## [2.0.14] — 2026-09-01
+
+Fixes an exit-code collision on `--fail-on-critical` (added in 2.0.13): a CLI
+usage error (an unrecognized or malformed argument) previously also exited 2
+via argparse's own default error handling, indistinguishable from "critical
+findings present." CLI usage errors now exit 64 (the standard `EX_USAGE`
+convention) instead, so exit code 2 is exclusive to `--fail-on-critical`. No
+change to any documented, correctly-invoked command's behavior.
+
 ## [2.0.13] — 2026-08-29
 
 Adds a `--fail-on-critical` flag to `brasscoders scan`. With the flag, the scan
@@ -389,6 +398,7 @@ Initial public-launch release.
   opt-in package-hallucination check.
 
 [Unreleased]: https://github.com/CopperSunDev/brasscoders/commits/main
+[2.0.14]: https://pypi.org/project/brasscoders/2.0.14/
 [2.0.13]: https://pypi.org/project/brasscoders/2.0.13/
 [2.0.12]: https://pypi.org/project/brasscoders/2.0.12/
 [2.0.11]: https://pypi.org/project/brasscoders/2.0.11/

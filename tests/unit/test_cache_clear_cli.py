@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from brass.cli.brass_cli import BrassCLI
+from brass.cli.brass_cli import BrassCLI, EX_USAGE
 
 
 def _isolate_env(monkeypatch, tmp_path: Path) -> Path:
@@ -251,14 +251,16 @@ def test_cache_clear_nothing_to_do_mentions_typeshed_when_requested(tmp_path, mo
 
 
 def test_cache_no_action_errors(tmp_path, monkeypatch, capsys):
-    """`brasscoders cache` with no action → argparse exits with error."""
+    """`brasscoders cache` with no action → argparse exits with a usage error."""
     _isolate_env(monkeypatch, tmp_path)
 
     cli = BrassCLI()
     with pytest.raises(SystemExit) as excinfo:
         cli.run(["cache"])
-    # argparse exits 2 for missing positional
-    assert excinfo.value.code == 2
+    # EX_USAGE (64), not argparse's default 2 — 2 is reserved for
+    # --fail-on-critical so a CI script can't confuse a CLI typo with
+    # "critical findings present". See _BrassArgumentParser.
+    assert excinfo.value.code == EX_USAGE
 
 
 def test_cache_invalid_action_errors(tmp_path, monkeypatch, capsys):
@@ -268,7 +270,7 @@ def test_cache_invalid_action_errors(tmp_path, monkeypatch, capsys):
     cli = BrassCLI()
     with pytest.raises(SystemExit) as excinfo:
         cli.run(["cache", "wipe"])
-    assert excinfo.value.code == 2
+    assert excinfo.value.code == EX_USAGE
 
 
 # -------------------------------------- cache footer (Tier 1)
