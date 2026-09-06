@@ -844,7 +844,14 @@ class PyPerfIntegration:
 class BrassPerformanceScanner:
     """
     Performance Intelligence Scanner for detecting algorithmic anti-patterns.
-    
+
+    In a reproducible 12-file benchmark (docs/benchmarks/ai-coder-bugs), this
+    scanner caught 4 of 4 AI-coder performance anti-patterns — O(N²) string
+    concatenation in a loop, list.insert(0) in a loop, N-deep nested-loop
+    joins, and unbounded while-True polls — while Bandit, Semgrep, and
+    Pylint each caught 0 of 4. These are bugs an AI assistant introduces
+    because the prompt describes the happy path, not the bounds.
+
     Phase 1: Hybrid approach combining proven tools with AI-specific intelligence:
     - Radon for scientific complexity metrics
     - Vulture for performance-impacting dead code

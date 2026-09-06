@@ -511,6 +511,10 @@ class Brass2PrivacyScanner:
     - Context awareness: Test vs production distinction
     - Modular design: Independent PII detectors
     - Clean interface: Returns List[Finding]
+
+    Covers PII flowing across call paths — personal data captured in one
+    function and logged, cached, or transmitted in another, a path a
+    single-file AI review won't trace end to end.
     """
     
     def __init__(self, project_path: str):

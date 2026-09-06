@@ -1017,6 +1017,10 @@ class ProfessionalCodeScanner:
     - Pylint for code quality analysis
     - Legacy patterns for TODO/FIXME detection
 
+    Bandit's rule set gives this scanner partial coverage of race conditions
+    and concurrency hazards — an honest scope, not a claim of full coverage;
+    see the AI-pattern detectors for the rest of that category.
+
     Follows Brass2 architecture:
     - Single responsibility (code analysis only)
     - Clean Finding interface

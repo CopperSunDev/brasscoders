@@ -153,8 +153,10 @@ _SEVERITY_BY_TYPE = {
 class SecretsScanner:
     """Detect application secrets using the detect-secrets plugin suite.
 
-    Single responsibility: find leaked credentials in source files. Returns
-    ``List[Finding]`` like every other BrassCoders scanner.
+    Single responsibility: find leaked credentials in source files, including
+    placeholder-looking values that still pattern-match a real secret format
+    — the shape AI-generated code introduces past a `# TODO: replace` comment.
+    Returns ``List[Finding]`` like every other BrassCoders scanner.
     """
 
     # File types worth scanning. We deliberately include things like .env / .yaml

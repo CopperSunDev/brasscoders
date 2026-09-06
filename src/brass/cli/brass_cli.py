@@ -1,5 +1,5 @@
 """
-BrassCLI - Command-line interface for the new Copper Sun Brass system.
+BrassCLI - Command-line interface for BrassCoders.
 
 This component provides a user-friendly CLI for running scans and
 generating intelligence reports.
@@ -71,8 +71,8 @@ class _BrassArgumentParser(argparse.ArgumentParser):
 
 class BrassCLI:
     """
-    Command-line interface for the new Copper Sun Brass system.
-    
+    Command-line interface for BrassCoders.
+
     Provides commands for:
     - One-time analysis (scan)
     - Report generation
@@ -171,7 +171,7 @@ class BrassCLI:
         """Create command-line argument parser."""
         parser = _BrassArgumentParser(
             prog='brasscoders',
-            description='🎺 BrassCoders for AI Coders v2.0 - Revolutionary AI Development Intelligence',
+            description='🎺 BrassCoders — 12 deterministic scanners for the bugs AI coding assistants structurally miss',
             formatter_class=argparse.RawDescriptionHelpFormatter,
             epilog="""
 💡 Quick Start:
@@ -922,7 +922,7 @@ class BrassCLI:
     
     def _print_scan_header(self, project_path: Path, output_dir: str, args) -> None:
         """Print scan header information."""
-        print(f"🎺 Copper Sun Brass v2.0 - Scanning {project_path.name}")
+        print(f"🎺 BrassCoders - Scanning {project_path.name}")
         print(f"📁 Project: {project_path}")
         print(f"📤 Output: {project_path / output_dir}")
         
@@ -1767,7 +1767,8 @@ class BrassCLI:
         print(f"   🔒 For security review: Check security_report.yaml first")
         print(f"   📂 For file-specific issues: Browse file_intelligence.yaml")
         print(f"   📊 For project overview: Review statistics.yaml")
-        
+        print(f"\n💡 Why these categories: https://coppersun.dev/why-brass")
+
         # Add helpful next steps based on analysis mode
         self._show_helpful_next_steps(args, len(all_findings), len(critical_findings))
     
@@ -2002,7 +2003,7 @@ class BrassCLI:
         project_path = Path(args.project_path).resolve()
         output_dir = project_path / '.brass'
         
-        print(f"📊 Copper Sun Brass Status - {project_path.name}")
+        print(f"📊 BrassCoders Status - {project_path.name}")
         print(f"📁 Project: {project_path}")
         print()
         

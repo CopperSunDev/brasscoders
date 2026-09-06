@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 _No unreleased changes._
 
+## [2.0.15] — 2026-09-06
+
+Documentation and messaging cleanup, no scanning or output-schema changes.
+Scanner docstrings (`PysaTaintScanner`, `SecretsScanner`,
+`PackageHallucinationDetector`, `AIAuthPatternAnalyzer`,
+`SemgrepTaintScanner`, `BrassPerformanceScanner`, `Brass2PrivacyScanner`,
+`ProfessionalCodeScanner`) now name the blind-spot category each one
+covers, consistent with the taxonomy already published at
+coppersun.dev/ai-blind-spots and in the benchmark corpus under
+`docs/benchmarks/ai-coder-bugs`. The package docstring and CLI `--help`
+description dropped leftover "Revolutionary... fantastic intelligence"
+copy for a factual one-liner. Also fixed three CLI strings (`scan`'s
+header banner, `status`'s header, and two module docstrings) that still
+said "Copper Sun Brass" instead of "BrassCoders" post-rename. The scan
+summary now prints a `Why these categories` pointer to
+coppersun.dev/why-brass alongside the existing output-file guidance.
+
 ## [2.0.14] — 2026-09-01
 
 Fixes an exit-code collision on `--fail-on-critical` (added in 2.0.13): a CLI

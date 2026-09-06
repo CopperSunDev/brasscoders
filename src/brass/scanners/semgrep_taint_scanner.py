@@ -76,7 +76,12 @@ KIND_SEVERITY = {
 
 
 class SemgrepTaintScanner:
-    """Run semgrep taint rules and emit Findings."""
+    """Run semgrep taint rules and emit Findings.
+
+    Covers context-dependent insecure patterns — cases where the correct
+    fix depends on framework/config context a single-file view doesn't
+    carry — against BrassCoders's curated rule set (data/semgrep_rules/).
+    """
 
     def __init__(self, project_path: str, file_index=None, since_commit: Optional[str] = None):
         self.project_path = Path(project_path).resolve()

@@ -134,6 +134,10 @@ class PackageValidationResult:
 class PackageHallucinationDetector:
     """Detects AI-generated references to non-existent packages using AST + registry validation.
 
+    Slopsquatting attack surface: USENIX Security 2025 found 19.7% of
+    AI-recommended packages don't exist on the relevant registry. Whoever
+    registers the hallucinated name first gets whatever installs it next.
+
     **Network-touching scanner — opt-in only.** Validating an "unknown" import requires
     an outbound HTTPS GET to the language's package registry (PyPI / npm / pkg.go.dev).
     For closed-source codebases that contain private internal package names, this would
@@ -285,7 +289,12 @@ class PackageHallucinationDetector:
 
 
 class AIAuthPatternAnalyzer:
-    """Detects AI-generated authentication anti-patterns."""
+    """Detects AI-generated authentication anti-patterns.
+
+    Covers the auth-middleware misconfiguration category: hardcoded
+    secrets, weak JWT config, and a route an AI assistant added without
+    noticing the app's existing rate-limit convention.
+    """
     
     AI_AUTH_PATTERNS = {
         'hardcoded_secrets': {

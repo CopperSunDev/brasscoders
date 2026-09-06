@@ -221,7 +221,12 @@ TYPESHED_SEARCH_PATHS = (
 
 
 class PysaTaintScanner:
-    """Run Pysa with BrassCoders-shipped models against the customer's Python sources."""
+    """Run Pysa with BrassCoders-shipped models against the customer's Python sources.
+
+    Covers cross-file taint — SQL injection, XSS, and command injection that
+    span 3+ files via interprocedural analysis, the category a single-file
+    AI review has no mechanism to trace.
+    """
 
     def __init__(self, project_path: str, file_index=None):
         self.project_path = Path(project_path).resolve()
