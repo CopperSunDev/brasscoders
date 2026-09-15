@@ -1,43 +1,18 @@
 {
   "dataset": "ai-coder-bugs",
   "dataset_version": "1.0.0",
-  "run_at": "2026-06-13T18:03:15Z",
+  "run_at": "2026-09-15T22:04:23Z",
   "python": "3.12.5",
   "platform": "darwin",
+  "note": "Static tools (brasscoders/bandit/semgrep/pylint) re-run 2026-09-15 against brasscoders 2.0.15. ask-model (claude-sonnet-4-6) not re-run -- carried forward verbatim from the original 2026-06-13T18:03:15Z run (see run_at on that historical result); corpus and model are unchanged, so the result is still valid.",
+  "ask_model_original_run_at": "2026-06-13T18:03:15Z",
   "tools": {
     "brasscoders": {
-      "version": "   brasscoders watch                         # Monitor changes",
-      "wall_time_sec": 13.48,
+      "version": "\ud83c\udfba BrassCoders 2.0.15",
+      "wall_time_sec": 19.51,
       "returncode": 0,
       "num_findings": 34,
       "findings": [
-        {
-          "file": "secrets_pii/api_client.py",
-          "line": 15,
-          "text": "Possible hardcoded credential (value redacted) Variable assignment: `AWS_SECRET_ACCESS_KEY`. A credential-shaped literal was detected at this location. The exact value has been redacted to prevent the brass output from re-exposing it. Inspect the source line directly to confirm and rotate the credential if real.   SecretsScanner",
-          "raw_rule": "SecretsScanner",
-          "signals": [
-            "hardcoded_secret"
-          ]
-        },
-        {
-          "file": "secrets_pii/api_client.py",
-          "line": 15,
-          "text": "Possible hardcoded credential (value redacted) Variable assignment: `AWS_SECRET_ACCESS_KEY`. A credential-shaped literal was detected at this location. The exact value has been redacted to prevent the brass output from re-exposing it. Inspect the source line directly to confirm and rotate the credential if real.   SecretsScanner",
-          "raw_rule": "SecretsScanner",
-          "signals": [
-            "hardcoded_secret"
-          ]
-        },
-        {
-          "file": "secrets_pii/api_client.py",
-          "line": 15,
-          "text": "Possible hardcoded credential (value redacted) Variable assignment: `AWS_SECRET_ACCESS_KEY`. A credential-shaped literal was detected at this location. The exact value has been redacted to prevent the brass output from re-exposing it. Inspect the source line directly to confirm and rotate the credential if real.   SecretsScanner",
-          "raw_rule": "SecretsScanner",
-          "signals": [
-            "hardcoded_secret"
-          ]
-        },
         {
           "file": "security_injection/run_report.py",
           "line": 18,
@@ -45,6 +20,15 @@
           "raw_rule": "bandit",
           "signals": [
             "command_injection"
+          ]
+        },
+        {
+          "file": "secrets_pii/api_client.py",
+          "line": 15,
+          "text": "Possible hardcoded credential (value redacted) Variable assignment: `AWS_SECRET_ACCESS_KEY`. A credential-shaped literal was detected at this location. The exact value has been redacted to prevent the brass output from re-exposing it. Inspect the source line directly to confirm and rotate the credential if real.   SecretsScanner",
+          "raw_rule": "SecretsScanner",
+          "signals": [
+            "hardcoded_secret"
           ]
         },
         {
@@ -73,20 +57,38 @@
           "signals": []
         },
         {
-          "file": "security_injection/user_lookup.py",
-          "line": 17,
-          "text": "Pattern match: sql injection SQL execution with a variable named like raw SQL (query/sql/stmt/etc.). If that variable is built via string interpolation or concatenation, it's a SQL injection. Use parameterized queries (positional or named placeholders) instead.   AstGrepScanner",
-          "raw_rule": "AstGrepScanner",
-          "signals": [
-            "sql_injection"
-          ]
-        },
-        {
           "file": "secrets_pii/api_client.py",
           "line": 19,
           "text": "Call to requests without timeout Call to requests without timeout. Confidence: LOW   bandit",
           "raw_rule": "bandit",
           "signals": []
+        },
+        {
+          "file": "secrets_pii/api_client.py",
+          "line": 15,
+          "text": "Possible hardcoded credential (value redacted) Variable assignment: `AWS_SECRET_ACCESS_KEY`. A credential-shaped literal was detected at this location. The exact value has been redacted to prevent the brass output from re-exposing it. Inspect the source line directly to confirm and rotate the credential if real.   SecretsScanner",
+          "raw_rule": "SecretsScanner",
+          "signals": [
+            "hardcoded_secret"
+          ]
+        },
+        {
+          "file": "secrets_pii/api_client.py",
+          "line": 15,
+          "text": "Possible hardcoded credential (value redacted) Variable assignment: `AWS_SECRET_ACCESS_KEY`. A credential-shaped literal was detected at this location. The exact value has been redacted to prevent the brass output from re-exposing it. Inspect the source line directly to confirm and rotate the credential if real.   SecretsScanner",
+          "raw_rule": "SecretsScanner",
+          "signals": [
+            "hardcoded_secret"
+          ]
+        },
+        {
+          "file": "security_injection/user_lookup.py",
+          "line": 16,
+          "text": "Possible SQL injection vector through string-based query construction. Possible SQL injection vector through string-based query construction.. Confidence: LOW   bandit",
+          "raw_rule": "bandit",
+          "signals": [
+            "sql_injection"
+          ]
         },
         {
           "file": "security_injection/run_report.py",
@@ -105,21 +107,21 @@
           ]
         },
         {
-          "file": "security_injection/user_lookup.py",
-          "line": 16,
-          "text": "Possible SQL injection vector through string-based query construction. Possible SQL injection vector through string-based query construction.. Confidence: LOW   bandit",
-          "raw_rule": "bandit",
-          "signals": [
-            "sql_injection"
-          ]
-        },
-        {
           "file": "secrets_pii/api_client.py",
           "line": 15,
           "text": "Possible hardcoded credential (value redacted) Variable assignment: `AWS_SECRET_ACCESS_KEY`. A credential-shaped literal was detected at this location. The exact value has been redacted to prevent the brass output from re-exposing it. Inspect the source line directly to confirm and rotate the credential if real.   bandit",
           "raw_rule": "bandit",
           "signals": [
             "hardcoded_secret"
+          ]
+        },
+        {
+          "file": "security_injection/user_lookup.py",
+          "line": 17,
+          "text": "Pattern match: sql injection SQL execution with a variable named like raw SQL (query/sql/stmt/etc.). If that variable is built via string interpolation or concatenation, it's a SQL injection. Use parameterized queries (positional or named placeholders) instead.   AstGrepScanner",
+          "raw_rule": "AstGrepScanner",
+          "signals": [
+            "sql_injection"
           ]
         },
         {
@@ -284,8 +286,8 @@
       ]
     },
     "bandit": {
-      "version": "bandit 1.8.6",
-      "wall_time_sec": 0.2,
+      "version": "bandit 1.9.4",
+      "wall_time_sec": 0.16,
       "returncode": 1,
       "num_findings": 9,
       "findings": [
@@ -368,11 +370,55 @@
         }
       ]
     },
+    "semgrep": {
+      "version": "1.163.0",
+      "wall_time_sec": 3.22,
+      "returncode": 0,
+      "num_findings": 4,
+      "findings": [
+        {
+          "file": "correctness/calc_endpoint.py",
+          "line": 15,
+          "text": "python.lang.security.audit.eval-detected.eval-detected Detected the use of eval(). eval() can be dangerous if used to evaluate dynamic content. If this content can be input from outside the program, this may be a code injection vulnerability. Ensure evaluated content is not definable by external sources.",
+          "raw_rule": "python.lang.security.audit.eval-detected.eval-detected",
+          "signals": [
+            "code_injection"
+          ]
+        },
+        {
+          "file": "security_injection/load_config.py",
+          "line": 17,
+          "text": "python.lang.security.deserialization.pickle.avoid-pickle Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format.",
+          "raw_rule": "python.lang.security.deserialization.pickle.avoid-pickle",
+          "signals": [
+            "deserialization"
+          ]
+        },
+        {
+          "file": "security_injection/render_template.py",
+          "line": 17,
+          "text": "python.jinja2.security.audit.autoescape-disabled-false.incorrect-autoescape-disabled Detected a Jinja2 environment with 'autoescaping' disabled. This is dangerous if you are rendering to a browser because this allows for cross-site scripting (XSS) attacks. If you are in a web context, enable 'autoescaping' by setting 'autoescape=True.' You may also consider using 'jinja2.select_autoescape()' to only enable automatic escaping for certain file extensions.",
+          "raw_rule": "python.jinja2.security.audit.autoescape-disabled-false.incorrect-autoescape-disabled",
+          "signals": [
+            "xss"
+          ]
+        },
+        {
+          "file": "security_injection/run_report.py",
+          "line": 18,
+          "text": "python.lang.security.audit.subprocess-shell-true.subprocess-shell-true Found 'subprocess' function 'check_output' with 'shell=True'. This is dangerous because this call will spawn the command using a shell process. Doing so propagates current shell settings and variables, which makes it much easier for a malicious actor to execute commands. Use 'shell=False' instead.",
+          "raw_rule": "python.lang.security.audit.subprocess-shell-true.subprocess-shell-true",
+          "signals": [
+            "command_injection"
+          ]
+        }
+      ]
+    },
     "pylint": {
-      "version": "pylint 3.3.7",
-      "wall_time_sec": 2.32,
-      "returncode": 20,
-      "num_findings": 16,
+      "version": "pylint 3.3.9",
+      "wall_time_sec": 0.97,
+      "returncode": 22,
+      "num_findings": 17,
       "findings": [
         {
           "file": "correctness/calc_endpoint.py",
@@ -478,6 +524,14 @@
           "text": "C0116 missing-function-docstring Missing function or method docstring",
           "raw_rule": "C0116",
           "is_style_noise": true,
+          "signals": []
+        },
+        {
+          "file": "security_injection/render_template.py",
+          "line": 13,
+          "text": "E0401 import-error Unable to import 'jinja2'",
+          "raw_rule": "E0401",
+          "is_style_noise": false,
           "signals": []
         },
         {
@@ -648,72 +702,84 @@
       "perf_antipatterns/csv_export_builder.py": {
         "brasscoders": true,
         "bandit": false,
+        "semgrep": false,
         "pylint": false,
         "ask-model": true
       },
       "perf_antipatterns/recent_first_queue.py": {
         "brasscoders": true,
         "bandit": false,
+        "semgrep": false,
         "pylint": false,
         "ask-model": true
       },
       "perf_antipatterns/match_orders.py": {
         "brasscoders": true,
         "bandit": false,
+        "semgrep": false,
         "pylint": false,
         "ask-model": true
       },
       "perf_antipatterns/poll_until_ready.py": {
         "brasscoders": true,
         "bandit": false,
+        "semgrep": false,
         "pylint": false,
         "ask-model": true
       },
       "security_injection/user_lookup.py": {
         "brasscoders": true,
         "bandit": true,
+        "semgrep": false,
         "pylint": false,
         "ask-model": true
       },
       "security_injection/run_report.py": {
         "brasscoders": true,
         "bandit": true,
+        "semgrep": true,
         "pylint": false,
         "ask-model": true
       },
       "security_injection/render_template.py": {
         "brasscoders": true,
         "bandit": true,
+        "semgrep": true,
         "pylint": false,
         "ask-model": true
       },
       "security_injection/load_config.py": {
         "brasscoders": true,
         "bandit": true,
+        "semgrep": true,
         "pylint": false,
         "ask-model": true
       },
       "secrets_pii/api_client.py": {
         "brasscoders": true,
         "bandit": true,
+        "semgrep": false,
         "pylint": false,
         "ask-model": true
       },
       "secrets_pii/seed_customers.py": {
         "brasscoders": true,
         "bandit": false,
+        "semgrep": false,
         "pylint": false,
         "ask-model": true
       },
       "correctness/calc_endpoint.py": {
         "brasscoders": true,
         "bandit": true,
+        "semgrep": true,
         "pylint": true,
         "ask-model": true
       },
       "correctness/parse_temps.py": {
         "brasscoders": false,
         "bandit": false,
+        "semgrep": false,
         "pylint": false,
         "ask-model": true
       }
@@ -760,6 +826,7 @@
         "caught": {
           "brasscoders": 1,
           "bandit": 1,
+          "semgrep": 1,
           "ask-model": 1
         }
       },
@@ -768,6 +835,7 @@
         "caught": {
           "brasscoders": 1,
           "bandit": 1,
+          "semgrep": 1,
           "ask-model": 1
         }
       },
@@ -776,6 +844,7 @@
         "caught": {
           "brasscoders": 1,
           "bandit": 1,
+          "semgrep": 1,
           "ask-model": 1
         }
       },
@@ -799,6 +868,7 @@
         "caught": {
           "brasscoders": 1,
           "bandit": 1,
+          "semgrep": 1,
           "pylint": 1,
           "ask-model": 1
         }
@@ -816,24 +886,32 @@
         "total": 12,
         "catch_rate": 0.917,
         "false_positives_on_controls": 0,
-        "version": "   brasscoders watch                         # Monitor changes",
-        "wall_time_sec": 13.48
+        "version": "\ud83c\udfba BrassCoders 2.0.15",
+        "wall_time_sec": 19.51
       },
       "bandit": {
         "caught": 6,
         "total": 12,
         "catch_rate": 0.5,
         "false_positives_on_controls": 0,
-        "version": "bandit 1.8.6",
-        "wall_time_sec": 0.2
+        "version": "bandit 1.9.4",
+        "wall_time_sec": 0.16
+      },
+      "semgrep": {
+        "caught": 4,
+        "total": 12,
+        "catch_rate": 0.333,
+        "false_positives_on_controls": 0,
+        "version": "1.163.0",
+        "wall_time_sec": 3.22
       },
       "pylint": {
         "caught": 1,
         "total": 12,
         "catch_rate": 0.083,
         "false_positives_on_controls": 0,
-        "version": "pylint 3.3.7",
-        "wall_time_sec": 2.32
+        "version": "pylint 3.3.9",
+        "wall_time_sec": 0.97
       },
       "ask-model": {
         "caught": 12,

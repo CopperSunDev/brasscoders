@@ -2616,9 +2616,8 @@ class BrassCLI:
         except (ImportError, AttributeError):
             current_version = "2.0.0"
 
-        print("🎺 BrassCoders for AI Coders v2.0 - Revolutionary Intelligence System")
-        print("   AI Development Intelligence for Coding Assistants")
-        print("   Built with clean architecture and fantastic user experience")
+        print(f"🎺 BrassCoders {current_version}")
+        print("   Deterministic static-analysis scanners for AI-generated code")
         print()
         print("🔧 Core Components:")
         print("   • ProfessionalCodeScanner - Multi-tool code analysis (Bandit + Pylint + Security)")

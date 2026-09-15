@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 _No unreleased changes._
 
+## [2.0.16] — 2026-09-15
+
+Fixes `brasscoders version`: it never actually printed the version number.
+`_cmd_version` printed a fixed banner ("Revolutionary Intelligence System")
+with the real `__version__` value fetched but unused. Now prints
+`🎺 BrassCoders <version>` as the first line. This also fixes a latent bug
+in the `ai-coder-bugs` benchmark runner, which captured `brasscoders
+version`'s output positionally (last line) to record provenance — with no
+real version line to grab, it silently recorded an unrelated banner line
+as the "version" in `results.json`. The runner now searches for the line
+naming the version instead of assuming position. No change to scanning,
+findings, ranking, or YAML output.
+
 ## [2.0.15] — 2026-09-06
 
 Documentation and messaging cleanup, no scanning or output-schema changes.

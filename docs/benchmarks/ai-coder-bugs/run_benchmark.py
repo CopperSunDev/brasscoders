@@ -289,10 +289,19 @@ def run_brasscoders(brass_bin: str) -> Dict[str, Any]:
                 })
     ver = subprocess.run([brass_bin, "version"], capture_output=True,
                          text=True, timeout=30)
+    # `brasscoders version` prints a "Running startup checks..." preamble
+    # before the actual "🎺 BrassCoders <version>" line, so position ([0]
+    # or [-1]) isn't reliable — search for the line that names the
+    # version. As of the 2026-09-15 fix to _cmd_version, that's the one
+    # starting with "🎺". (Before that fix, _cmd_version never printed a
+    # version string at all, and this capture silently grabbed a "Get
+    # Started" banner line instead — see the ai-coder-bugs RESULTS.md
+    # history for the mislabeled provenance that caused.)
+    ver_lines = (ver.stdout or ver.stderr).strip().splitlines()
+    ver_line = next((l for l in ver_lines if "BrassCoders" in l), None)
     return {
         "findings": findings,
-        "version": (ver.stdout or ver.stderr).strip().splitlines()[-1][:80]
-        if (ver.stdout or ver.stderr) else "unknown",
+        "version": (ver_line or (ver_lines[-1] if ver_lines else "unknown"))[:80],
         "wall_time_sec": wall,
         "returncode": proc.returncode,
     }
