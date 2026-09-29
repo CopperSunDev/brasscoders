@@ -22,7 +22,7 @@ recommendation instead of restating the count.
 ## Top-level structure
 
 ```yaml
-metadata: { ... }                  # scan timestamp, brass version, etc.
+metadata: { ... }                  # scan provenance — see "Metadata" below
 how_to_read_this_file: { ... }     # slim glossary — pointers, not prose
 executive_summary: { ... }         # see "Executive summary" below
 tool_health_summary: "..."         # 1-line pointer to operator_notes.yaml
@@ -38,6 +38,53 @@ ai_guidance: { ... }               # how brass thinks an AI should handle this s
 file_priorities: [ ... ]           # ranked file list
 quick_actions: [ ... ]             # one-liner actions an AI can suggest immediately
 ```
+
+## Metadata
+
+`metadata` is scan provenance: how these findings were produced, so the
+AI consumer knows how to read them. It is NOT operator diagnostics
+(those live in `operator_notes.yaml` — see "Where things moved"). The
+common fields (`generated_at`, `project_path`, `analysis_engine`,
+`total_findings`) appear in every `.brass/*.yaml`; the three below are
+grafted into `ai_instructions.yaml` only.
+
+```yaml
+metadata:
+  generated_at: "2026-09-29T12:34:56"
+  project_path: "/path/to/project"
+  analysis_engine: "BrassCoders 2.x"
+  total_findings: 374
+  scanners_run: [ast_grep, code, privacy, secrets, ...]   # scanners with status ok
+  pysa_cache:                                             # present once the Pysa cache exists
+    size_mb: 42.1
+    entry_count: 3
+    location: "~/.cache/brass/pysa-state"
+  enrichment:
+    mode: heuristic_no_license                            # always present on CLI-produced files
+    note: "Heuristic-only scan: ... Provenance only."     # ONLY when mode != enriched
+```
+
+- **`scanners_run`** — sorted names of the scanners that ran with status
+  `ok` this scan. Omitted (not emitted as `[]`) when the caller tracks
+  no scanner status. Read it to tell "scanner ran clean" from "scanner
+  never ran, no signal in that category". Per-scanner skip/error reasons
+  are in `statistics.yaml` under `scanner_health`.
+- **`pysa_cache`** — size, entry count and (`$HOME`-redacted) location of
+  the on-disk Pysa cache. Present once the cache exists; omitted before
+  the first Pysa run.
+- **`enrichment`** — which pass produced the findings. `mode` is one of
+  the closed values in `src/brass/core/enrichment_mode.py`:
+  `enriched` (the BrassCoders Paid AI enrichment pass — semantic dedup +
+  reranking — ran), `heuristic_no_license`, `heuristic_no_enrich_flag`,
+  `heuristic_fallback` (a licensed scan attempted enrichment and fell
+  back to heuristic results for the whole scan — never partial), or
+  `heuristic_offline`. Every `heuristic_*` mode carries the same
+  one-sentence `note`; `enriched` carries `mode` only. Heuristic-only
+  results are complete as shown — the local noise-reduction pass is the
+  final filter — and imply that per-finding `cluster_size` is absent
+  (it is produced by the enrichment pass). This is provenance, not an
+  action item: relay it as context if the user asks how the scan ran;
+  do not turn it into a recommendation.
 
 ## Per-block intent
 
@@ -147,6 +194,9 @@ properties on every push:
 - Each finding has non-null `file_path` and `line_number`
 - `operator_notes.yaml` exists when operator-facing info applies
 - `production_focus` exists and is a list
+- `metadata.enrichment.mode` is present on CLI-produced files (a closed
+  value from `enrichment_mode.py`); `note` accompanies every
+  `heuristic_*` mode
 
 Adding fields is backward-compatible. Removing or renaming fields requires
 a deprecation cycle (mirror the `_deprecated_critical_issues_note`

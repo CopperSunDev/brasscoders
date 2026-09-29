@@ -81,6 +81,7 @@ class YAMLOutputGeneratorV2:
         scanner_status: Optional[Dict[str, "ScannerStatus"]] = None,
         scan_duration_seconds: Optional[float] = None,
         peak_memory_mb: Optional[float] = None,
+        enrichment_mode: Optional[str] = None,
     ) -> Dict[str, str]:
         """
         Generate complete YAML intelligence output using focused builders.
@@ -91,6 +92,12 @@ class YAMLOutputGeneratorV2:
                 When provided, the statistics and ai_instructions builders
                 surface skipped/errored scanners so AI consumers can tell
                 "scanner ran clean" from "scanner silently failed."
+            enrichment_mode: Optional enrichment outcome of this scan
+                (a ``brass.core.enrichment_mode`` constant). When provided,
+                ai_instructions.yaml carries ``metadata.enrichment`` so the
+                AI consumer knows whether the Paid enrichment pass ran or
+                the local heuristic filter was the final pass. ``None``
+                (isolated callers) omits the block entirely.
 
         Returns:
             Dictionary mapping file names to file paths created
@@ -114,7 +121,9 @@ class YAMLOutputGeneratorV2:
         # Generate each YAML file using focused builders. Only the
         # statistics and ai_instructions builders receive scanner_status;
         # the others have no use for it and stay scanner-status-blind.
-        generated_files.update(self._generate_ai_instructions(findings, scanner_status))
+        generated_files.update(
+            self._generate_ai_instructions(findings, scanner_status, enrichment_mode)
+        )
         generated_files.update(self._generate_detailed_analysis(findings))
         generated_files.update(self._generate_file_intelligence(findings))
         generated_files.update(self._generate_security_report(findings))
@@ -210,11 +219,13 @@ class YAMLOutputGeneratorV2:
         self,
         findings: List[Finding],
         scanner_status: Optional[Dict[str, "ScannerStatus"]] = None,
+        enrichment_mode: Optional[str] = None,
     ) -> Dict[str, str]:
         """Generate AI instructions YAML using focused builder."""
         return self._generate_file_with_builder(
             'ai_instructions', findings, 'ai_instructions.yaml',
             scanner_status=scanner_status,
+            enrichment_mode=enrichment_mode,
         )
     
     def _generate_detailed_analysis(self, findings: List[Finding]) -> Dict[str, str]:
@@ -331,6 +342,7 @@ class YAMLOutputGeneratorV2:
         scanner_status: Optional[Dict[str, "ScannerStatus"]] = None,
         scan_duration_seconds: Optional[float] = None,
         peak_memory_mb: Optional[float] = None,
+        enrichment_mode: Optional[str] = None,
     ) -> Dict[str, str]:
         """
         Generate single YAML file using specified builder.
@@ -346,6 +358,8 @@ class YAMLOutputGeneratorV2:
             scan_duration_seconds: Optional wall-clock of the full scan;
                 forwarded to the statistics builder so it can emit real
                 analysis_duration / files_per_second instead of nulls.
+            enrichment_mode: Optional enrichment outcome; grafted into
+                ai_instructions.yaml's ``metadata.enrichment`` only.
 
         Returns:
             Dictionary with generated file mapping
@@ -402,6 +416,16 @@ class YAMLOutputGeneratorV2:
                         metadata['pysa_cache'] = OrderedDict(
                             (k, v) for k, v in cache_state.items()
                             if k != 'size_bytes'
+                        )
+                    # Enrichment provenance: which pass produced these
+                    # findings (Paid AI enrichment vs. local heuristic).
+                    # Truthy check so isolated callers that don't record
+                    # a mode (None) omit the block, mirroring scanners_run.
+                    if enrichment_mode:
+                        metadata['enrichment'] = (
+                            YAMLAIInstructionsBuilder._build_enrichment_metadata(
+                                enrichment_mode
+                            )
                         )
                 except Exception as enrich_exc:  # noqa: BLE001
                     logger.warning(

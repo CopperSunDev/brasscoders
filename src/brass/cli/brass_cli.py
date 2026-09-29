@@ -57,6 +57,20 @@ logger = get_logger(__name__)
 # the other and the CI-gate docs on coppersun.dev for the same collision.
 EX_USAGE = 64
 
+# One-line informational footer printed after a scan that ran with no
+# active license (see `_print_paid_note`). Module-level so tests can lint
+# the copy: single-tier ("BrassCoders Paid"), vendor-free, additive — the
+# free results it follows are complete; the Paid pass sits "on top of"
+# them. Deliberately carries no case-study figure: the headline
+# "2,470 → 22" number is the whole pipeline (most of that reduction is
+# the free heuristic pass), so quoting it here would credit the free
+# tier's work to Paid and imply a degraded free product.
+PAID_NOTE_LINE = (
+    "ℹ️  BrassCoders Paid adds an AI enrichment pass (semantic dedup + reranking) "
+    "on top of these results — https://coppersun.dev/why-brass  "
+    "(hide: brasscoders paid-note off)"
+)
+
 
 class _BrassArgumentParser(argparse.ArgumentParser):
     """ArgumentParser that exits usage errors with EX_USAGE (64) instead of
@@ -104,6 +118,15 @@ class BrassCLI:
         # Populated in `_run_scanner_task`, dumped to scanner_timings.json
         # and threaded into the YAML output pipeline.
         self._scanner_status: Dict[str, "ScannerStatus"] = {}
+
+        # Enrichment outcome of the most recent scan — one of the
+        # closed constants in brass.core.enrichment_mode, or None when
+        # no scan has run (or the scan hard-exited before recording).
+        # Set at every exit of `_maybe_apply_enrichment`, threaded into
+        # the YAML output as `metadata.enrichment`, and read by the
+        # post-scan paid note. An instance attribute rather than a
+        # return tuple because `_maybe_apply_enrichment` has five exits.
+        self._enrichment_mode: Optional[str] = None
 
         # Environment features (validated before scan)
         self.features = {
@@ -552,28 +575,59 @@ class BrassCLI:
         )
         portal_parser.set_defaults(func=self._cmd_portal)
 
-        # Telemetry consent management. Off by default. We track only
-        # anonymized usage counts (scan event + finding-type counts +
-        # version + platform). Source code, paths, PII never leave the
-        # machine.
+        # Telemetry consent management. Off by default; asked once
+        # interactively after the first scan. One `scan` event per scan:
+        # finding counts by type/severity, --fast/--dev flags, version,
+        # OS name, random install ID. Source code, paths, PII never
+        # leave the machine. --offline / BRASS_OFFLINE always win.
         telemetry_parser = subparsers.add_parser(
             'telemetry',
-            help='📊 Manage opt-in anonymized telemetry',
+            help='📊 Manage opt-in anonymous usage telemetry',
             description=(
-                'Telemetry is OFF by default. When on, BrassCoders sends '
-                'anonymized usage counts (scan events, finding-type '
-                'distribution, CLI version, OS) to the configured backend. '
-                'Source code, paths, emails, and stack traces never leave '
-                'your machine. Inspect what would be sent at '
-                '~/.brass/telemetry-debug.log.'
+                'Telemetry is OFF by default; BrassCoders asks once, '
+                'interactively, after your first scan. When on, each scan '
+                'sends one small anonymous event to Copper Sun\'s gateway '
+                '(/api/telemetry, stored in Axiom): the count of findings '
+                'by type and severity, whether --fast or --dev was used, '
+                'the CLI version, your OS name, and a random install ID. '
+                'Source code, file paths, emails, license keys, and stack '
+                'traces never leave your machine. Nothing is sent with '
+                '--offline or BRASS_OFFLINE=1. Every event is also written '
+                'to ~/.brass/telemetry-debug.log so you can check.'
             )
         )
         telemetry_parser.add_argument(
             'action',
-            choices=['on', 'off', 'status'],
-            help="'on' opts in, 'off' opts out, 'status' shows current state"
+            choices=['on', 'off', 'status', 'reset'],
+            help=(
+                "'on' opts in, 'off' opts out, 'status' shows the current "
+                "state and why, 'reset' mints a new random install ID"
+            )
         )
         telemetry_parser.set_defaults(func=self._cmd_telemetry)
+
+        # Paid plan note. After a scan that ran with no active license,
+        # BrassCoders prints one informational line saying the Paid plan
+        # adds an AI enrichment pass. This subcommand persists a dismiss
+        # at ~/.brass/paid-note (env: BRASS_QUIET_PAID_NOTE=1 per run).
+        paid_note_parser = subparsers.add_parser(
+            'paid-note',
+            help='ℹ️  Show or hide the one-line Paid plan note after free scans',
+            description=(
+                'After a scan with no active license, BrassCoders prints one '
+                'line noting that BrassCoders Paid adds an AI enrichment pass '
+                'on top of the same results. Free results are complete as '
+                'shown. \'off\' hides the line permanently, \'on\' restores '
+                'it, \'status\' shows the current setting. Per-run: '
+                'BRASS_QUIET_PAID_NOTE=1.'
+            )
+        )
+        paid_note_parser.add_argument(
+            'action',
+            choices=['on', 'off', 'status'],
+            help="'on' shows the note, 'off' hides it, 'status' shows current state"
+        )
+        paid_note_parser.set_defaults(func=self._cmd_paid_note)
 
         # Cache management. Surfaces a CLI escape hatch for the on-disk
         # caches BrassCoders writes under ~/.cache/brass/ — primarily the Pysa
@@ -1515,20 +1569,52 @@ class BrassCLI:
         from brass.output.cross_scanner_overlap import stash_overlap_on_metadata
         clean_findings = stash_overlap_on_metadata(clean_findings)
 
-        # Phase 3.5: AI enrichment (paid feature; gated by active license + --no-enrich opt-out)
-        if not getattr(args, 'no_enrich', False):
-            clean_findings = self._maybe_apply_enrichment(clean_findings)
+        # Phase 3.5: AI enrichment (paid feature; gated by active license,
+        # --no-enrich opt-out, and --offline). Called unconditionally so the
+        # enrichment mode is recorded in exactly one place — the gates live
+        # inside `_maybe_apply_enrichment`.
+        clean_findings = self._maybe_apply_enrichment(
+            clean_findings,
+            no_enrich=bool(getattr(args, 'no_enrich', False)),
+            offline=(
+                bool(getattr(args, 'offline', False))
+                or os.environ.get("BRASS_OFFLINE") == "1"
+            ),
+        )
 
         return clean_findings
 
-    def _maybe_apply_enrichment(self, findings):
+    def _maybe_apply_enrichment(self, findings, *, no_enrich=False, offline=False):
         """Run findings through the gateway when the license is active.
 
         Soft-fail to heuristic-only on network / gateway / rate-limit
         errors. Hard-fail on quota exhaustion (per V1 plan §3 locked
         decision: option 2 — sharpest revenue signal).
+
+        Records the outcome on ``self._enrichment_mode`` at every exit
+        (see ``brass.core.enrichment_mode``). The two ``SystemExit(2)``
+        paths leave it ``None`` — the process exits before any consumer
+        reads it.
         """
+        from brass.core import enrichment_mode as _mode
+
+        if no_enrich:
+            self._enrichment_mode = _mode.HEURISTIC_NO_ENRICH_FLAG
+            return findings  # Deliberate opt-out — heuristic only.
+
         from brass.licensing import LicenseStore
+
+        if offline:
+            # --offline is a hard no-network contract: return BEFORE any
+            # gateway client is constructed or "Running AI enrichment"
+            # prints. Only a licensed user sees a note — a free install
+            # was never going to enrich, so there is nothing to skip.
+            self._enrichment_mode = _mode.HEURISTIC_OFFLINE
+            record = LicenseStore.default().read()
+            if record is not None and record.is_active():
+                print("ℹ️  --offline: skipping AI enrichment; using heuristic results.")
+            return findings
+
         from brass.enrichment import (
             EnrichmentClient,
             EnrichmentClientError,
@@ -1541,7 +1627,8 @@ class BrassCLI:
 
         record = LicenseStore.default().read()
         if record is None or not record.is_active():
-            return findings  # OSS tier or inactive — heuristic only.
+            self._enrichment_mode = _mode.HEURISTIC_NO_LICENSE
+            return findings  # No active license — heuristic only.
 
         client = EnrichmentClient(
             license_key=record.license_key,
@@ -1572,12 +1659,18 @@ class BrassCLI:
             print("   --no-enrich' to fall back to the heuristic filter.")
             raise SystemExit(2)
         except (EnrichmentRateLimitedError, EnrichmentUnavailableError) as exc:
+            self._enrichment_mode = _mode.HEURISTIC_FALLBACK
             print(f"   ⚠️ Enrichment unavailable ({exc}); using heuristic results.")
             return findings
         except EnrichmentClientError as exc:
             # Defensive catch-all: anything else, soft-fail.
+            self._enrichment_mode = _mode.HEURISTIC_FALLBACK
             print(f"   ⚠️ Enrichment skipped ({exc}); using heuristic results.")
             return findings
+
+        # Set immediately on success so the quota block below (which
+        # has its own try/except) can never leave the mode unset.
+        self._enrichment_mode = _mode.ENRICHED
 
         used_pct = 0
         if report.quota_remaining + report.tokens_used > 0:
@@ -1720,6 +1813,7 @@ class BrassCLI:
             scanner_status=self._scanner_status or None,
             scan_duration_seconds=scan_duration,
             peak_memory_mb=peak_memory_mb,
+            enrichment_mode=self._enrichment_mode,
         )
 
         return ranked_findings, output_files
@@ -1897,20 +1991,39 @@ class BrassCLI:
         # part of the scan results.
         self._print_cache_footer()
 
-        # Emit anonymized telemetry. No-ops when consent is off (the
-        # default). Records only counts — never source code, file paths,
-        # or PII. Counts are derived from the ``ranked_findings`` list,
-        # not from any file content.
-        from brass.telemetry import record as _telemetry_record
+        # Informational note: after a no-license scan, one line saying
+        # the Paid plan adds an enrichment pass. Printed after the cache
+        # footer so operational ⚠️/🧹 reads before informational ℹ️.
+        self._print_paid_note(self._enrichment_mode)
+
+        # Opt-in usage telemetry (no-op when consent is off, always a
+        # no-op under --offline), then the one-time consent prompt —
+        # asked only AFTER this scan's event would have fired, so the
+        # scan the user just watched is never sent.
+        self._emit_scan_telemetry(args, ranked_findings, offline_mode)
+        self._maybe_prompt_telemetry(offline_mode)
+
+        return self._scan_exit_code(args, ranked_findings)
+
+    def _emit_scan_telemetry(self, args, ranked_findings, offline_mode: bool) -> None:
+        """Emit the one ``scan`` telemetry event; never raises, never runs offline.
+
+        Records only counts derived from ``ranked_findings`` — never source
+        code, file paths, or PII. Keys are the lowercase ``FindingType`` /
+        ``Severity`` wire values the gateway's strict schema expects.
+        ``offline_mode`` is a hard return (belt); ``ConsentStore`` also
+        reads ``BRASS_OFFLINE`` (suspenders).
+        """
+        if offline_mode:
+            return
         try:
             from collections import Counter
+            from brass.telemetry import record as _telemetry_record
             type_counts = Counter(
-                getattr(f.type, 'value', str(f.type))
-                for f in ranked_findings
+                getattr(f.type, 'value', str(f.type)) for f in ranked_findings
             )
             severity_counts = Counter(
-                getattr(f.severity, 'value', str(f.severity))
-                for f in ranked_findings
+                getattr(f.severity, 'value', str(f.severity)) for f in ranked_findings
             )
             _telemetry_record(
                 event='scan',
@@ -1919,13 +2032,18 @@ class BrassCLI:
                 severity_counts=dict(severity_counts),
                 fast=bool(getattr(args, 'fast', False)),
                 dev_mode=bool(getattr(args, 'dev', False)),
-                offline=bool(getattr(args, 'offline', False)),
             )
         except Exception:
             # Telemetry must never bubble into the CLI's normal flow.
             pass
 
-        return self._scan_exit_code(args, ranked_findings)
+    def _maybe_prompt_telemetry(self, offline_mode: bool) -> None:
+        """One-time interactive consent prompt. Can never change the exit code."""
+        try:
+            from brass.telemetry import ConsentStore, maybe_prompt_for_consent
+            maybe_prompt_for_consent(ConsentStore(), offline=offline_mode)
+        except Exception as exc:  # noqa: BLE001 - prompt must not break scan
+            logger.debug("telemetry prompt suppressed: %s", exc)
 
     def _scan_exit_code(self, args, ranked_findings) -> int:
         """Exit code for a completed scan.
@@ -2296,30 +2414,69 @@ class BrassCLI:
         return 0
 
     def _cmd_telemetry(self, args) -> int:
-        """Toggle or inspect anonymized telemetry consent."""
+        """Toggle, reset, or inspect anonymous usage-telemetry consent."""
         from brass.telemetry import ConsentStore
+        from brass.telemetry.backend import default_debug_log_path
         store = ConsentStore()
         if args.action == 'on':
             install_id = store.set(enabled=True)
             print("✅ Telemetry: ON")
             print(f"   Install ID:  {install_id}")
             print(f"   Consent at:  {store.path}")
-            print("   Inspect what gets recorded: ~/.brass/telemetry-debug.log")
-            print("   Disable any time:           brasscoders telemetry off")
+            print(f"   Inspect what gets sent: {default_debug_log_path()}")
+            print("   Disable any time:       brasscoders telemetry off")
             return 0
         if args.action == 'off':
             store.set(enabled=False)
             print("🚫 Telemetry: OFF")
             print(f"   Consent at:  {store.path}")
             return 0
-        # status
-        enabled = store.is_enabled()
-        marker = "ON ✅" if enabled else "OFF 🚫"
-        print(f"📊 Telemetry: {marker}")
-        if enabled and store.install_id():
+        if args.action == 'reset':
+            print("🔄 Telemetry install ID regenerated")
+            print(f"   Install ID:  {store.reset()}")
+            print("   Consent unchanged. Events sent under the previous ID can no "
+                  "longer be linked to this install.")
+            return 0
+        return self._print_telemetry_status(store)
+
+    def _print_telemetry_status(self, store) -> int:
+        """``telemetry status``: on/off, why, install ID, paths."""
+        from brass.telemetry.backend import default_debug_log_path
+        from brass.telemetry.consent import REASON_OFFLINE_ENV, REASON_TELEMETRY_ENV
+        enabled, reason = store.state()
+        print(f"📊 Telemetry: {'ON ✅' if enabled else 'OFF 🚫'}")
+        print(f"   Reason:      {reason}")
+        if reason in (REASON_OFFLINE_ENV, REASON_TELEMETRY_ENV):
+            print("   Hint:        unset BRASS_OFFLINE / BRASS_TELEMETRY to use "
+                  "the saved consent")
+        if store.install_id():
             print(f"   Install ID:  {store.install_id()}")
         print(f"   Consent at:  {store.path}")
-        print("   Toggle:      brasscoders telemetry on | off")
+        print(f"   Debug log:   {default_debug_log_path()}")
+        print("   Commands:    brasscoders telemetry on | off | status | reset")
+        return 0
+
+    def _cmd_paid_note(self, args) -> int:
+        """Toggle or inspect the post-scan Paid plan note."""
+        from brass.licensing.paid_note import PaidNoteStore
+        store = PaidNoteStore()
+        if args.action == 'on':
+            store.set(enabled=True)
+            print("✅ Paid plan note: ON")
+            print(f"   Setting at:  {store.path}")
+            print("   Hide any time: brasscoders paid-note off")
+            return 0
+        if args.action == 'off':
+            store.set(enabled=False)
+            print("🚫 Paid plan note: OFF")
+            print(f"   Setting at:  {store.path}")
+            return 0
+        # status
+        marker = "ON ✅" if store.is_enabled() else "OFF 🚫"
+        print(f"ℹ️  Paid plan note: {marker}")
+        print(f"   Setting at:  {store.path}")
+        print("   Toggle:      brasscoders paid-note on | off")
+        print("   Per run:     BRASS_QUIET_PAID_NOTE=1")
         return 0
 
     def _cmd_cache(self, args) -> int:
@@ -2600,6 +2757,37 @@ class BrassCLI:
                 )
         except Exception as exc:  # noqa: BLE001 - footer must not break scan
             logger.debug("cache footer suppressed: %s", exc)
+
+    def _print_paid_note(self, mode: Optional[str]) -> None:
+        """Print `PAID_NOTE_LINE` after a no-license scan; otherwise nothing.
+
+        Shown ONLY for ``heuristic_no_license``. Every other mode is a
+        plain return: ``enriched`` (already Paid), ``heuristic_offline``
+        (explicit no-network choice; keeps --offline stdout unchanged),
+        ``heuristic_fallback`` (a *licensed* user whose enrichment
+        soft-failed — the ⚠️ already printed; never tell a paying
+        customer "Paid exists"), ``heuristic_no_enrich_flag`` (a
+        deliberate opt-out; a note reads as nagging), and ``None``
+        (no scan recorded a mode).
+
+        Suppress per run via ``BRASS_QUIET_PAID_NOTE=1`` (mirrors
+        ``BRASS_QUIET_CACHE``) or permanently via
+        ``brasscoders paid-note off``. Best-effort: a corrupt or
+        unreadable settings file never breaks scan output.
+        """
+        from brass.core.enrichment_mode import HEURISTIC_NO_LICENSE
+        if mode != HEURISTIC_NO_LICENSE:
+            return
+        if os.environ.get("BRASS_QUIET_PAID_NOTE") == "1":
+            return
+        try:
+            from brass.licensing.paid_note import PaidNoteStore
+            if not PaidNoteStore().is_enabled():
+                return
+        except Exception as exc:  # noqa: BLE001 - note must not break scan
+            logger.debug("paid note suppressed: %s", exc)
+            return
+        print(PAID_NOTE_LINE)
 
     def _cmd_version(self, args) -> int:
         """Execute version command (with optional update check).

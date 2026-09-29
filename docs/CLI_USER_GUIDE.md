@@ -42,6 +42,7 @@ brass scan --content
 | `--project-path PATH` | Specify project directory (default: current directory) |
 | `--log-file PATH` | 📝 Custom log file location (default: `.brass/brass.log`) |
 | `--no-log-file` | 🚫 Disable automatic log file creation |
+| `--offline` | 🚫 Refuse all outbound network calls. Skips the Paid AI enrichment pass even with an active license and forces `--check-package-hallucination` off. Goes before the subcommand: `brasscoders --offline scan` |
 
 ### Commands
 
@@ -110,6 +111,18 @@ Show version details and component status.
 **Usage:**
 ```bash
 brass version
+```
+
+#### `brasscoders paid-note` - Paid plan note
+
+Show or hide the one-line note printed after a scan that ran with no
+active license (see [Paid plan note](#paid-plan-note) under Configuration).
+
+**Usage:**
+```bash
+brasscoders paid-note off      # hide it permanently
+brasscoders paid-note on       # show it again
+brasscoders paid-note status   # current setting
 ```
 
 ## 📁 Output Files
@@ -197,6 +210,35 @@ brass scan --output-dir ./reports
 # Organize by date
 brass scan --output-dir ./analysis/$(date +%Y-%m-%d)
 ```
+
+### Paid plan note
+
+After a scan that ran with no active license, BrassCoders prints one
+informational line as the last line of output:
+
+```
+ℹ️  BrassCoders Paid adds an AI enrichment pass (semantic dedup + reranking) on top of these results — https://coppersun.dev/why-brass  (hide: brasscoders paid-note off)
+```
+
+Free results are complete as shown — the local noise-reduction pass is
+the final filter and nothing is held back. The Paid plan is additive: it
+runs an extra AI enrichment pass (semantic dedup + reranking) on top of
+the same findings.
+
+**When it appears:** only after scans with no active license. It is never
+printed for licensed scans, for `--offline` or `--no-enrich` scans, or
+when a licensed scan falls back to heuristic results.
+
+**Hide it:**
+```bash
+brasscoders paid-note off                   # permanent (setting at ~/.brass/paid-note)
+BRASS_QUIET_PAID_NOTE=1 brasscoders scan    # this run only
+brasscoders paid-note on                    # show it again
+brasscoders paid-note status                # current setting
+```
+
+Which pass produced a scan is recorded in `.brass/ai_instructions.yaml`
+at `metadata.enrichment.mode` (`enriched`, or a `heuristic_*` value).
 
 ### 📝 Logging & Debugging
 

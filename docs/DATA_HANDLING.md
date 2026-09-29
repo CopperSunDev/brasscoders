@@ -1,7 +1,8 @@
 # BrassCoders — data handling and security
 
-_Last updated: 2026-05-22. Reflects the post-2C architecture
-(merged into `main` on 2026-05-25 as commit `840ad14`)._
+_Last updated: 2026-09-29. Reflects the post-2C architecture
+(merged into `main` on 2026-05-25 as commit `840ad14`) plus the opt-in
+usage telemetry added 2026-09-29._
 
 This is the technical companion to `PRIVACY_POLICY.md`. The privacy
 policy is the customer-facing legal disclosure; this document
@@ -29,6 +30,18 @@ a bug — please file an issue.
     metadata (your license key hash + token counters)
   - **No raw code, no full files, no findings text** is stored at rest
     on our infrastructure
+- Which mode ran is recorded per scan at `metadata.enrichment.mode` in
+  `.brass/ai_instructions.yaml` (`enriched`, or a `heuristic_*` value
+  naming why enrichment did not run — no license, `--no-enrich`,
+  `--offline`, or a fallback after a gateway error).
+- **Usage telemetry is opt-in and off by default.** The CLI asks once,
+  interactively, after your first scan (never in CI, never without a
+  terminal). If you say yes, each scan sends one small anonymous event
+  to our gateway, stored in Axiom: finding counts by type and severity,
+  whether `--fast`/`--dev` were used, the CLI version, your OS name,
+  and a random install ID. Never source, paths, filenames, emails,
+  keys, or stack traces. Never sent with `--offline`. See "What we log
+  — CLI usage telemetry (opt-in)" below.
 - All inter-service hops use TLS 1.2/1.3.
 - License keys travel in HTTP headers, never URLs — they can't leak
   into URL-bearing exception messages or proxy logs.
@@ -233,6 +246,58 @@ We do not log:
   do emit)
 - IP addresses (beyond what Vercel automatically captures for routing)
 
+### What we log — CLI usage telemetry (opt-in)
+
+Off by default. The CLI asks once — interactively, after the first
+successful scan, default **No** — and never asks in CI, under
+`--offline`, without a TTY, or when `BRASS_TELEMETRY` is already set.
+Say yes there, or run `brasscoders telemetry on`, and each completed
+scan sends **one** event (`event: "scan"`) with exactly these fields:
+
+| Field | Value |
+|---|---|
+| `brass_version` | the running CLI version |
+| `platform` | `darwin` / `linux` / `windows` / `other` — OS family only |
+| `install_id` | random UUID minted once, stored in `~/.brass/telemetry`. Identifies the install, not you. Stable across opt-out; `brasscoders telemetry reset` mints a new one. |
+| `timestamp_ms` | your machine's clock (the server also stamps its own receive time) |
+| `total_findings` | number of findings after ranking |
+| `finding_types` | counts keyed by type (`security`, `privacy`, `code_quality`, …) |
+| `severity_counts` | counts keyed by severity (`critical`, `high`, …) |
+| `fast`, `dev_mode` | whether `--fast` / `--dev` were used |
+
+**Never sent**: source code, file paths or filenames, finding titles or
+text, project name or signature, emails, license keys, environment
+variables, stack traces, error messages, or anything from
+`.brass/*.yaml`. The gateway enforces this with a strict allowlist
+schema — an event carrying any other key is rejected (HTTP 400), not
+stored.
+
+**Transport**: one HTTPS `POST /api/telemetry` to
+`brass-api-gateway.vercel.app` per scan, unauthenticated (no license
+key travels with it), with a 1 s connect / 1.5 s read timeout.
+Failures are silently dropped — telemetry never delays, retries, or
+fails a scan.
+
+**Storage**: the validated event is forwarded to an Axiom dataset owned
+by Copper Sun. Axiom holds the fields above plus its own receive time.
+Retention: 90 days (the dataset's configured retention in Axiom).
+
+**IP addresses**: the gateway does **not** store or forward your IP to
+Axiom. It is used only as a salted SHA-256 hash for a 60-second abuse
+throttle in Upstash (an unauthenticated route needs one), after which
+the key expires. Vercel's own edge logging applies as for every other
+request.
+
+**Inspect / disable / rotate**:
+
+| Action | How |
+|---|---|
+| See exactly what was sent | `~/.brass/telemetry-debug.log` — every event is appended here (JSONL) *before* it is posted; rotates at 256 KiB |
+| Check state and why | `brasscoders telemetry status` — on/off, the deciding reason (env var, consent file, or default), and the install ID |
+| Turn off / on | `brasscoders telemetry off` / `brasscoders telemetry on` (persisted in `~/.brass/telemetry`) |
+| New install ID | `brasscoders telemetry reset` — prior events can no longer be linked to this install |
+| Force off for one run or in CI | `BRASS_TELEMETRY=off`, or `--offline` / `BRASS_OFFLINE=1` — these win over everything, including a saved opt-in |
+
 ---
 
 ## Subprocessors
@@ -243,7 +308,8 @@ Third-party services that touch customer data during normal operation:
 |---|---|---|
 | **Code-embedding & reranking provider** | Finding text (privacy-redacted before transmission) + project signature, during the embed and rerank API calls. Per-token billing. | Public commitment: "zero data retention" — API calls are not used for training. We verify the provider's current TOS for the latest commitment. |
 | **Vercel** (gateway hosting + edge network) | All HTTPS traffic transits Vercel infrastructure. Logs request metadata, error logs (see "What we log" above). | SOC 2 Type II certified. Logs encrypted at rest. Default region: US-East. |
-| **Upstash** (Redis backend) | All Redis reads/writes for embedding cache, license cache, quota state, rate limits. | SOC 2 Type II certified. Data encrypted at rest. |
+| **Upstash** (Redis backend) | All Redis reads/writes for embedding cache, license cache, quota state, rate limits, and the salted-hash telemetry abuse throttle. | SOC 2 Type II certified. Data encrypted at rest. |
+| **Axiom** (usage-telemetry storage) | Opt-in anonymous usage events only — the field list in "CLI usage telemetry" above. **Never sees code, finding text, file paths, emails, license keys, or IP addresses.** Sees nothing at all unless you opted in. | Per Axiom's public security page (axiom.co/security): SOC 2 Type II, ISO 27001, GDPR-supporting data handling, HIPAA BAA available; TLS 1.2+ in transit, AES-256 at rest. |
 | **LemonSqueezy** (license issuance + payment) | License keys, customer email, purchase records, activation metadata. **Does not see findings or code.** | SOC 2 Type II certified. They own the customer-payment relationship and tax compliance. |
 
 ### LemonSqueezy webhook flow
@@ -287,11 +353,15 @@ state mutations even with knowledge of the webhook URL.
   bodies, no third-party CDN that sees finding content.
 - ❌ **Sell or share customer email beyond what LemonSqueezy needs for
   the payment relationship.**
-- ❌ **Track customer scans, project signatures, or finding patterns
-  for product analytics.** The gateway counts tokens for billing;
-  that's it.
+- ❌ **Track scans, project signatures, or finding patterns for product
+  analytics without consent.** Usage telemetry is off by default, asks
+  once, and sends only anonymous counts (see "CLI usage telemetry"
+  above) — never a project signature or finding text. The paid
+  enrichment gateway counts tokens for billing; that's it.
 - ❌ **Make outbound network calls in `--offline` mode.** Every CLI
-  command honors `--offline` as a hard contract.
+  command honors `--offline` as a hard contract. This includes usage
+  telemetry, even when you have opted in: an `--offline` scan sends
+  nothing and writes nothing to the telemetry debug log.
 
 ---
 
@@ -307,6 +377,7 @@ processes. Honest current state:
 | Subprocessor list documented | ✅ This document |
 | Privacy policy in place | ✅ `cli/docs/PRIVACY_POLICY.md` |
 | `--offline` mode for air-gapped use | ✅ Documented contract |
+| Usage telemetry opt-in, off by default, anonymous counts only | ✅ Verifiable in `src/brass/telemetry/` (event builder) and the gateway's strict allowlist schema; `--offline` always wins |
 | SOC 2 Type I | ❌ Not certified |
 | SOC 2 Type II | ❌ Not certified |
 | ISO 27001 | ❌ Not certified |
@@ -330,6 +401,8 @@ If your procurement process requires any of these, contact
 | Run fully offline (no enrichment, no network) | `brasscoders --offline scan` |
 | Enable enrichment but skip the package-hallucination check | default (the package-hallucination check is opt-in per scan) |
 | Stop using enrichment entirely | `brasscoders license deactivate` (releases the activation; on-disk record at `~/.brass/license` is removed) |
+| Turn usage telemetry on or off, or see why it is in its current state | `brasscoders telemetry on`, `brasscoders telemetry off`, `brasscoders telemetry status` (per run: `BRASS_TELEMETRY=off`; `--offline` always wins) |
+| Rotate the anonymous telemetry install ID | `brasscoders telemetry reset` |
 | Request deletion of your license and quota state from our gateway | Email `brass@coppersuncreative.com`. We'll remove your license + quota Redis entries. Embedding cache entries auto-expire within 7 days (and are not recoverable to text anyway). |
 
 ---

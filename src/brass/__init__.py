@@ -8,5 +8,5 @@ own — cross-file taint, hallucinated package imports, and AI-coder
 performance anti-patterns among them.
 """
 
-__version__ = "2.0.16"
+__version__ = "2.1.0"
 __author__ = "Copper Sun Brass Team"

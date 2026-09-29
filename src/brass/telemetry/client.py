@@ -7,15 +7,24 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from brass.telemetry.backend import BackendProtocol, MockBackend
+from brass.telemetry.backend import BackendProtocol, HttpBackend
 from brass.telemetry.consent import ConsentStore
+
+# The gateway's `platform` enum. Anything else maps to "other" (the wire
+# schema is strict; an unknown OS name would 400 the whole event).
+KNOWN_PLATFORMS = frozenset({"darwin", "linux", "windows"})
+
+
+def platform_name() -> str:
+    name = platform.system().lower()
+    return name if name in KNOWN_PLATFORMS else "other"
 
 
 @dataclass
 class TelemetryConfig:
     """Runtime configuration for the telemetry pipeline."""
 
-    backend: BackendProtocol = field(default_factory=MockBackend)
+    backend: BackendProtocol = field(default_factory=HttpBackend)
     consent: ConsentStore = field(default_factory=ConsentStore)
 
 
@@ -32,9 +41,9 @@ class TelemetryClient:
         return self.config.consent.is_enabled()
 
     def record(self, *, event: str, **payload: Any) -> None:
-        if not self.is_enabled():
-            return
         try:
+            if not self.is_enabled():
+                return
             full = self._build_event(event, payload)
             self.config.backend.emit(full)
         except Exception:
@@ -48,8 +57,9 @@ class TelemetryClient:
         return {
             "event": event,
             "brass_version": brass_version,
-            "platform": platform.system().lower(),
-            "install_id": self.config.consent.install_id() or "",
+            "platform": platform_name(),
+            # Stable, minted on first use; the gateway rejects an empty id.
+            "install_id": self.config.consent.ensure_install_id(),
             "timestamp_ms": int(time.time() * 1000),
             **{k: v for k, v in payload.items() if v is not None},
         }
@@ -79,4 +89,11 @@ def record(*, event: str, **payload: Any) -> None:
     _client().record(event=event, **payload)
 
 
-__all__ = ["TelemetryClient", "TelemetryConfig", "is_enabled", "record"]
+__all__ = [
+    "KNOWN_PLATFORMS",
+    "TelemetryClient",
+    "TelemetryConfig",
+    "is_enabled",
+    "platform_name",
+    "record",
+]

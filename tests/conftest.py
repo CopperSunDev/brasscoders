@@ -18,6 +18,16 @@ from brass.scanners.content_moderation_scanner import ContentModerationScanner
 from brass.models.finding import Finding, FindingType, Severity
 
 
+@pytest.fixture(autouse=True)
+def _never_prompt_for_telemetry(monkeypatch):
+    """The first-run telemetry consent prompt must never reach ``input()``
+    under pytest — ``pytest -s`` on a real TTY would block a scan test and
+    persist a decision into the developer's real ``~/.brass``. Tests that
+    exercise the prompt patch ``is_interactive`` back to True themselves
+    (a test-level monkeypatch runs after this one and wins)."""
+    monkeypatch.setattr("brass.telemetry.prompt.is_interactive", lambda: False)
+
+
 @pytest.fixture
 def temp_project():
     """Create a temporary project directory for testing."""

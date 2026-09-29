@@ -16,9 +16,21 @@ from collections import OrderedDict, defaultdict
 from pathlib import Path
 
 from brass.models.finding import Finding, FindingType, Severity
+from brass.core.enrichment_mode import is_enriched
 from .base_builder import BaseYAMLBuilder
 from .yaml_utils import YAMLUtils
 from .constants import FileTypes, Priorities, RiskLevels, TestIndicators, Messages
+
+
+# One-sentence provenance note attached to `metadata.enrichment` on every
+# heuristic-only scan. Module-level so tests can lint the copy directly:
+# single-tier ("BrassCoders Paid"), vendor-free, and additive — free
+# results are complete as shown; the Paid pass is an extra, not a repair.
+ENRICHMENT_HEURISTIC_NOTE = (
+    "Heuristic-only scan: findings were filtered by the local noise-reduction pass "
+    "and are complete as shown. BrassCoders Paid adds an optional AI enrichment pass "
+    "(semantic dedup + reranking) that was not applied here. Provenance only."
+)
 
 # Per-file size cap for code-snippet synthesis (Phase D). Skipping files
 # bigger than this keeps memory bounded on minified bundles and generated
@@ -430,6 +442,12 @@ class YAMLAIInstructionsBuilder(BaseYAMLBuilder):
                 ('tool_health_summary', 'When present, see operator_notes.yaml '
                                         'for operator-facing diagnostics '
                                         '(cache size, version warnings, etc.).'),
+                ('metadata.enrichment', 'Provenance. mode: enriched = the Paid '
+                                        'AI enrichment pass (semantic dedup + '
+                                        'reranking) ran; any heuristic_* mode = '
+                                        'local filtering only, so cluster_size '
+                                        'will be absent. Context, not an '
+                                        'action item.'),
                 ('actionable_findings_by_category', 'Category counts restricted '
                                                     'to findings that actually '
                                                     'reach a typed block or the '
@@ -947,6 +965,20 @@ class YAMLAIInstructionsBuilder(BaseYAMLBuilder):
         if cache_advisory is not None:
             advisories.append(cache_advisory)
         return advisories
+
+    @staticmethod
+    def _build_enrichment_metadata(mode: str) -> "OrderedDict[str, Any]":
+        """Build the ``metadata.enrichment`` block for one scan.
+
+        ``{mode}`` when the Paid enrichment pass ran; ``{mode, note}``
+        for every heuristic-only mode, where ``note`` is the fixed
+        ``ENRICHMENT_HEURISTIC_NOTE`` sentence. Pure: no I/O, so the
+        generator's graft try/except is the only failure surface.
+        """
+        block: "OrderedDict[str, Any]" = OrderedDict([('mode', mode)])
+        if not is_enriched(mode):
+            block['note'] = ENRICHMENT_HEURISTIC_NOTE
+        return block
 
     @staticmethod
     def _compute_pysa_cache_state(

@@ -9,8 +9,9 @@ stops drowning useful signal in low-confidence noise.
 BrassCoders is a **deterministic, local, free pre-merge gate**: the same scan on
 the same code produces the same findings every run — no API call, no tokens, no
 per-run cost. It runs automatically in CI without anyone needing to ask. There is
-no background daemon, no telemetry by default, and no outbound network calls
-unless you opt in.
+no background daemon, no telemetry unless you opt in (`brasscoders telemetry on`,
+or say yes to the one-time prompt after your first scan), and no outbound network
+calls in `--offline` mode.
 
 ## What it produces
 

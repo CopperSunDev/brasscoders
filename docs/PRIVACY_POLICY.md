@@ -1,6 +1,6 @@
 # BrassCoders — privacy & data-handling policy
 
-_Last updated: 2026-04-29. Bound to release 2.0.0._
+_Last updated: 2026-09-29. Bound to release 2.1.0 (opt-in usage telemetry)._
 
 This document is the customer-facing summary. For the full technical
 breakdown — what's transmitted on the wire, what's persisted in Redis,
@@ -90,11 +90,25 @@ You should not enable the package-hallucination check on a project that
 imports private internal package names. Doing so would leak those names to
 the public registry.
 
-There is no telemetry, error reporting, usage analytics, or auto-update
-check in BrassCoders. Future telemetry (planned for Phase 4) will be opt-in only,
-will record nothing more granular than scan counts and finding-type
-distribution, and will never include source code, file paths, or stack
-traces.
+BrassCoders has no error reporting, crash reporting, or auto-update
+mechanism. Outside a paid enrichment scan, two things can touch the network:
+
+- `brasscoders version` (only that command) may make one HTTPS request to
+  PyPI to tell you whether a newer release exists. It is skipped under
+  `--offline` or `BRASS_DISABLE_VERSION_CHECK=1`.
+- **Usage telemetry, which is off by default.** After your first successful
+  interactive scan, BrassCoders asks once (default No; never in CI, never
+  without a terminal, never under `--offline`). If you opt in, each scan
+  sends one small anonymous event to Copper Sun's gateway (stored in
+  Axiom): the count of findings by type and severity, whether `--fast` or
+  `--dev` was used, the CLI version, your OS name, and a random install ID
+  that identifies the install, not you. It never includes source code, file
+  paths or names, emails, license keys, or stack traces, and it is always
+  suppressed by `--offline`. Every event is also written to
+  `~/.brass/telemetry-debug.log` so you can inspect it. Change your mind
+  any time with `brasscoders telemetry on | off | status | reset`. The
+  exact field list, transport, and storage details are in
+  `DATA_HANDLING.md`.
 
 ## What BrassCoders refuses to do
 

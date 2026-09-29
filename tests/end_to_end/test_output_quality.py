@@ -352,6 +352,30 @@ def ai_instructions_or_empty(scan_target: Path) -> Dict[str, Any]:
     return yaml.safe_load(path.read_text()) or {}
 
 
+# --- metadata.enrichment provenance -------------------------------
+
+
+def test_metadata_enrichment_records_offline_mode(
+    ai_instructions: Dict[str, Any],
+) -> None:
+    """The harness scans with ``--offline`` (see ``_run_brassai_against``),
+    so a CLI-produced ai_instructions.yaml must record
+    ``metadata.enrichment.mode == heuristic_offline`` plus the
+    provenance ``note`` every heuristic mode carries. This is analysis
+    provenance (like ``metadata.scanners_run``), not an operator
+    diagnostic — it belongs here, not in operator_notes.yaml."""
+    from brass.core.enrichment_mode import HEURISTIC_OFFLINE
+    from brass.output.yaml_builders.ai_instructions_builder import (
+        ENRICHMENT_HEURISTIC_NOTE,
+    )
+
+    block = ai_instructions["metadata"].get("enrichment")
+    assert isinstance(block, dict), "metadata.enrichment missing on a CLI-produced file"
+    assert block["mode"] == HEURISTIC_OFFLINE
+    assert block["note"] == ENRICHMENT_HEURISTIC_NOTE
+    assert "metadata.enrichment" in ai_instructions["how_to_read_this_file"]["field_glossary"]
+
+
 # --- production_focus view ----------------------------------------
 
 

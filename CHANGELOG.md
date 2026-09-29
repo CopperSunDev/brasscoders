@@ -9,6 +9,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 _No unreleased changes._
 
+## [2.1.0] — 2026-09-29
+
+### Added
+
+- One-line Paid plan note after scans that ran with no active license:
+  `ℹ️  BrassCoders Paid adds an AI enrichment pass (semantic dedup +
+  reranking) on top of these results — …`. Printed after the results
+  panel and cache footer, only for no-license scans — never for licensed
+  scans, `--offline` or `--no-enrich` scans, or when a licensed scan
+  falls back to heuristic results. Free results are complete as shown;
+  the note is informational. Hide it permanently with the new
+  `brasscoders paid-note off` subcommand (`on` / `status` also
+  available; setting lives at `~/.brass/paid-note`) or per run with
+  `BRASS_QUIET_PAID_NOTE=1`.
+- `metadata.enrichment` in `ai_instructions.yaml`: records which pass
+  produced the findings — `mode: enriched`, or one of
+  `heuristic_no_license` / `heuristic_no_enrich_flag` /
+  `heuristic_fallback` / `heuristic_offline` plus a one-sentence
+  provenance `note`. Heuristic modes imply per-finding `cluster_size` is
+  absent. Also named in `how_to_read_this_file.field_glossary` so the AI
+  consumer can tell which kind of run it is reading. Additive; no
+  existing field changed. Documented in
+  `docs/output/AI_INSTRUCTIONS_CANONICAL_SHAPE.md` (new "Metadata"
+  section, which also documents the previously undocumented
+  `scanners_run` and `pysa_cache`).
+- Opt-in anonymous usage telemetry, off by default, with a one-time
+  interactive prompt (default No) after the first successful scan —
+  never in CI, without a terminal, under `--offline`, or when
+  `BRASS_TELEMETRY` is set. When on, each scan sends one small event to
+  Copper Sun's gateway (`POST /api/telemetry`, stored in Axiom): finding
+  counts by type and severity, whether `--fast`/`--dev` were used, the
+  CLI version, OS name, and a random install ID. Never source code, file
+  paths, emails, license keys, or stack traces. Every event is also
+  appended to `~/.brass/telemetry-debug.log` (now rotated at 256 KiB)
+  so you can inspect exactly what left the machine. Full field list in
+  `docs/DATA_HANDLING.md`.
+- `brasscoders telemetry reset` — mint a fresh random install ID
+  (consent unchanged; earlier events can no longer be linked to the
+  install).
+
+### Changed
+
+- `--offline` / `BRASS_OFFLINE=1` now hard-suppress telemetry, even when
+  you have opted in: nothing is sent and nothing is written to the debug
+  log. Previously `--offline` was only recorded as a payload field.
+- The telemetry install ID is stable across opt-out: `telemetry off`
+  then `on` keeps the same ID (previously it was deleted on opt-out and
+  re-minted, and was empty when enabled via `BRASS_TELEMETRY=on` with no
+  consent file).
+- `brasscoders telemetry status` now prints *why* telemetry is on or off
+  (`BRASS_OFFLINE` env, `BRASS_TELEMETRY` env, consent file, or default),
+  always shows the install ID when one exists, and shows the debug-log
+  path. The `offline` payload field was removed from the scan event.
+
+### Fixed
+
+- The telemetry import in the scan command was outside its exception
+  guard; an import failure there could have failed a scan after output
+  was already written. It is now inside the guard.
+- A licensed `--offline` scan no longer attempts the enrichment gateway
+  and soft-fails. Previously it printed "✨ Running AI enrichment..." and
+  then a ⚠️ after a network timeout; it now skips cleanly with one
+  `ℹ️  --offline: skipping AI enrichment; using heuristic results.` line,
+  before any gateway client is constructed. `BRASS_OFFLINE=1` is honored
+  the same way.
+
 ## [2.0.16] — 2026-09-15
 
 Fixes `brasscoders version`: it never actually printed the version number.

@@ -222,8 +222,9 @@ The cache itself is 10–300 MB depending on project size — well under the fre
 | `BRASS_AUTOFETCH_TYPESHED=1` | Let the first scan on a fresh cache key clone typeshed automatically. Default is off; CI is the canonical place to turn it on. |
 | `BRASS_PYSA_CACHE_ROOT=/path` | Move the Pysa cache out of `$HOME` if your runner has a constrained `$HOME` mount or you want to share the cache across users on a self-hosted runner. See [`CACHE.md`](CACHE.md) for validation rules. |
 | `BRASS_DISABLE_VERSION_CHECK=1` | Suppress BrassCoders's once-per-day update check. CI runs are short and ephemeral; the check is noise. |
+| `BRASS_QUIET_PAID_NOTE=1` | Suppress the one-line Paid plan note printed after scans that ran with no active license. Informational only; CI logs don't need it. (`brasscoders paid-note off` persists the same choice in `~/.brass`.) |
 
-All three are read at scan time. Set them in your job's `env:` block or per-step `environment:` map.
+All four are read at scan time. Set them in your job's `env:` block or per-step `environment:` map.
 
 ---
 
